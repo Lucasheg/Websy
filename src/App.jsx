@@ -1,921 +1,727 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
+import Modal from "./components/Modal.jsx";
+import { performAction } from "./actions/index.js";
 
 /**
- * CITEKS Website Maker – Minimal single-file version
- * - Collapsible control groups (Brand, Hero, Content, Sections, Layout & Motion)
- * - Live preview below (updates instantly)
- * - Local image upload OR URL for hero image
- * - Animation level: Low / Medium / High
- * - Include/exclude common sections
- * - Export HTML (downloads a static HTML of the generated page)
- *
- * No external deps. All styles inline or in <style>.
+ * CITEKS Website Maker — App.jsx
+ * - Left: controls (brand, colors, content)
+ * - Right: live preview (header, sections, footer)
+ * - Actions system: data-action="..." on buttons; logic lives in /src/actions/*
+ * - Modal for actions (book-call, select-plan, open-contact)
  */
 
-const DEFAULT_BRAND = {
-  name: "Your Company",
-  tagline: "We make websites pay for themselves.",
-  locations: "Oslo, New York, Amsterdam",
-  colors: {
-    ink: "#0F172A",
+const DEFAULT_BRIEF = {
+  company: {
+    name: "Your Company",
+    tagline: "We make websites pay for themselves.",
+    locations: "Oslo, New York, Amsterdam",
+    primary: "#0F172A",
+    secondary: "#F7F7F7",
     accent: "#0EA5E9",
-    neutral: "#F7F7F7",
+    heroImage: "",
   },
-};
-
-const DEFAULT_CONTENT = {
-  differentiators: [
-    "Clarity-first structure",
-    "Trust signals above the fold",
-    "Motion with restraint",
-  ],
-  services: [
-    "Strategy & IA — goals, sitemap, decision paths",
-    "Design System — reusable components, AA contrast",
-    "Performance & SEO — schema, speed budgets",
-  ],
-  testimonials: [
-    { quote: "They moved us from pretty to profitable.", author: "COO, Meridian" },
-  ],
+  goal: "Consultation",
+  differentiators: "Clear pricing\nFast delivery\nConversion-first layouts",
+  testimonials: '“They delivered fast and nailed the brief.” — COO, Meridian',
   logos: "Aldin Capital, Meridian Partners, Koto Energy",
-  metrics: [
-    { label: "Projects shipped", value: "180+" },
-    { label: "Avg. time to launch", value: "9 days" },
-  ],
-  pricingNote: "Transparent estimates. Fixed-fee options available.",
+  metrics: "Projects delivered: 120\nAvg. timeline: 8 days",
+  includePricing: true,
 };
 
-const DEFAULT_FLAGS = {
-  sections: {
-    value: true,
-    services: true,
-    proof: true,
-    pricing: true,
-    cta: true,
-    contact: true,
-  },
-  animation: "medium", // "low" | "medium" | "high"
-};
+function useHash() {
+  const [hash, setHash] = useState(() => window.location.hash || "#home");
+  useEffect(() => {
+    const onHash = () => setHash(window.location.hash || "#home");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  return hash.replace(/^#/, "") || "home";
+}
 
 export default function App() {
-  // ------------ STATE
-  const [openPanel, setOpenPanel] = useState("brand");
+  // ---------- Maker state ----------
+  const [brief, setBrief] = useState(DEFAULT_BRIEF);
 
-  const [brand, setBrand] = useState(DEFAULT_BRAND);
-  const [hero, setHero] = useState({
-    type: "image", // "image" | "solid" | "split"
-    imageUrl: "",
-    imageObjectUrl: "", // created from local upload
-    overlay: 0.35, // 0..0.7
-    height: "66vh", // css value
-    primaryCta: "Book consultation",
-    secondaryCta: "",
+  // Basic controlled inputs helpers
+  const on = (key) => ({
+    value: brief[key],
+    onChange: (e) => setBrief((b) => ({ ...b, [key]: e.target.value })),
+  });
+  const onCompany = (key) => ({
+    value: brief.company[key],
+    onChange: (e) =>
+      setBrief((b) => ({ ...b, company: { ...b.company, [key]: e.target.value } })),
+  });
+  const onToggle = (key) => ({
+    checked: !!brief[key],
+    onChange: (e) => setBrief((b) => ({ ...b, [key]: e.target.checked })),
   });
 
-  const [content, setContent] = useState(DEFAULT_CONTENT);
-  const [flags, setFlags] = useState(DEFAULT_FLAGS);
-  const [layout, setLayout] = useState({
-    container: 1180,
-    spacing: 12,
-    radius: 16,
-    hairline: "#E5E7EB",
-  });
+  // ---------- Modal + actions helpers ----------
+  const [modal, setModal] = useState(null);
+  const openModal = useCallback((cfg) => setModal(cfg), []);
+  const closeModal = useCallback(() => setModal(null), []);
+  const helpers = useMemo(
+    () => ({
+      openModal,
+      closeModal,
+      scrollTo: (id) => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      navigate: (hash) => {
+        window.location.hash = hash;
+      },
+      toast: (msg) => alert(msg),
+    }),
+    [openModal, closeModal]
+  );
 
-  // animation settings derived
-  const anim = useMemo(() => {
-    if (flags.animation === "low") return { dur: 300, y: 8, parallax: 0.02 };
-    if (flags.animation === "high") return { dur: 700, y: 18, parallax: 0.08 };
-    return { dur: 500, y: 12, parallax: 0.045 };
-  }, [flags.animation]);
+  // One click delegate for all interactive elements in PREVIEW
+  const onPreviewClick = useCallback(
+    async (e) => {
+      const target = e.target.closest("[data-action]");
+      if (!target) return;
+      e.preventDefault();
 
-  // handle local hero upload
-  function onHeroFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setHero((h) => ({ ...h, imageObjectUrl: url }));
-  }
+      const action = target.getAttribute("data-action");
+      const payload = {};
+      for (const { name, value } of Array.from(target.attributes)) {
+        if (name.startsWith("data-") && name !== "data-action") {
+          const key = name
+            .replace(/^data-/, "")
+            .replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+          payload[key] = value;
+        }
+      }
+      await performAction(action, helpers, payload);
+    },
+    [helpers]
+  );
 
-  // util parsers (textareas)
-  const parseLines = (s) =>
+  // ---------- Derived DSL for preview ----------
+  const dsl = useMemo(() => makeDSL(brief), [brief]);
+
+  // For the tiny router feel (anchors like #home, #services)
+  const current = useHash();
+
+  return (
+    <>
+      <style>{GLOBAL_CSS}</style>
+
+      <div className="wrap">
+        {/* LEFT: MAKER */}
+        <aside className="panel" style={{ padding: 16, alignSelf: "start" }}>
+          <div className="ts-h5" style={{ fontWeight: 700 }}>
+            Maker
+          </div>
+          <p className="ts-h6 tips" style={{ marginTop: 4 }}>
+            Adjust settings. The preview updates live.
+          </p>
+
+          <details open style={{ marginTop: 8 }}>
+            <summary className="ts-h6" style={{ cursor: "pointer" }}>
+              Brand
+            </summary>
+            <div className="grid" style={{ marginTop: 8 }}>
+              <label className="ts-h6">
+                Name
+                <input className="input" placeholder="Brand" {...onCompany("name")} />
+              </label>
+              <label className="ts-h6">
+                Tagline
+                <input className="input" placeholder="Tagline" {...onCompany("tagline")} />
+              </label>
+              <label className="ts-h6">
+                Locations (comma)
+                <input
+                  className="input"
+                  placeholder="Oslo, New York, Amsterdam"
+                  {...onCompany("locations")}
+                />
+              </label>
+              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+                <label className="ts-h6">
+                  Primary
+                  <input className="input" type="color" {...onCompany("primary")} />
+                </label>
+                <label className="ts-h6">
+                  Accent
+                  <input className="input" type="color" {...onCompany("accent")} />
+                </label>
+                <label className="ts-h6">
+                  Neutral
+                  <input className="input" type="color" {...onCompany("secondary")} />
+                </label>
+              </div>
+              <label className="ts-h6">
+                Hero image URL (optional)
+                <input className="input" placeholder="https://…" {...onCompany("heroImage")} />
+              </label>
+            </div>
+          </details>
+
+          <div className="thin" style={{ margin: "12px 0" }} />
+
+          <details open>
+            <summary className="ts-h6" style={{ cursor: "pointer" }}>
+              Content
+            </summary>
+            <div className="grid" style={{ marginTop: 8 }}>
+              <label className="ts-h6">
+                Primary goal
+                <select className="input" {...on("goal")}>
+                  <option>Consultation</option>
+                  <option>Book appointment</option>
+                  <option>Start demo</option>
+                  <option>Get quote</option>
+                </select>
+              </label>
+              <label className="ts-h6">
+                Differentiators (one per line)
+                <textarea className="input" rows={3} {...on("differentiators")} />
+              </label>
+              <label className="ts-h6">
+                Testimonials (quote — author per line)
+                <textarea className="input" rows={3} {...on("testimonials")} />
+              </label>
+              <label className="ts-h6">
+                Client logos (comma)
+                <input className="input" {...on("logos")} />
+              </label>
+              <label className="ts-h6">
+                Metrics (Label: Value per line)
+                <textarea className="input" rows={3} {...on("metrics")} />
+              </label>
+              <label className="ts-h6" style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                <input type="checkbox" {...onToggle("includePricing")} />
+                Include pricing section
+              </label>
+            </div>
+          </details>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button
+              className="btn"
+              onClick={() => setBrief(DEFAULT_BRIEF)}
+              type="button"
+              title="Reset to defaults"
+            >
+              Reset
+            </button>
+            <button
+              className="btn sec"
+              onClick={() => exportHTML(dsl)}
+              type="button"
+              title="Export preview to single HTML"
+            >
+              Export HTML
+            </button>
+          </div>
+        </aside>
+
+        {/* RIGHT: PREVIEW (Header + Page + Footer) */}
+        <section>
+          <Header brand={dsl.meta.brand} />
+
+          <main id="preview" onClick={onPreviewClick}>
+            <PageView dsl={dsl} current={current} />
+          </main>
+
+          <Footer brand={dsl.meta.brand} />
+        </section>
+      </div>
+
+      <Modal modal={modal} onClose={closeModal} />
+    </>
+  );
+}
+
+/* ----------------------------------------------
+ * DSL & RENDERING
+ * --------------------------------------------*/
+
+function makeDSL(brief) {
+  const brand = {
+    name: brief.company.name || "Your Company",
+    tagline: brief.company.tagline || "",
+    colors: {
+      primary: brief.company.primary || "#0F172A",
+      secondary: brief.company.secondary || "#F7F7F7",
+      accent: brief.company.accent || "#0EA5E9",
+    },
+    heroImage: brief.company.heroImage || "",
+    locations: (brief.company.locations || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean),
+  };
+
+  const toLines = (s) =>
     (s || "")
       .split("\n")
       .map((x) => x.trim())
       .filter(Boolean);
 
-  const parseTestimonials = (s) =>
-    parseLines(s).map((ln) => {
-      const [q, a] = ln.split("—").map((x) => x && x.trim());
-      return q ? { quote: q, author: a || "" } : null;
-    }).filter(Boolean);
+  const diffs = toLines(brief.differentiators).slice(0, 6).map((t) => ({
+    title: t,
+    text: "Built into our day-to-day process.",
+  }));
 
-  const parseMetrics = (s) =>
-    parseLines(s).map((ln) => {
-      const [label, value] = ln.split(":").map((x) => x && x.trim());
-      return label && value ? { label, value } : null;
-    }).filter(Boolean);
+  const testimonials = toLines(brief.testimonials).map((row) => {
+    const [q, a] = row.split("—").map((x) => (x && x.trim()) || "");
+    return q ? { quote: q.replace(/^["“]+|["”]+$/g, ""), author: a } : null;
+  }).filter(Boolean);
 
-  // ---------- EXPORT HTML
-  function exportHTML() {
-    const html = buildStaticHTML({
-      brand,
-      hero,
-      content,
-      flags,
-      layout,
-      anim,
-    });
-    const blob = new Blob([html], { type: "text/html" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = toFileName(brand.name) + ".html";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
+  const logos = (brief.logos || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
 
-  return (
-    <div>
-      {/* Global Styles */}
-      <style>{globalCss(layout, brand, anim)}</style>
+  const metrics = toLines(brief.metrics).map((row) => {
+    const [label, value] = row.split(":").map((x) => (x && x.trim()) || "");
+    return label && value ? { label, value } : null;
+  }).filter(Boolean);
 
-      {/* HEADER / TOOLBAR */}
-      <header className="toolbar">
-        <div className="brand">
-          <strong>CITEKS</strong> Website Maker
-        </div>
-        <div className="actions">
-          <button className="btn ghost" onClick={() => {
-            setBrand(DEFAULT_BRAND);
-            setHero({
-              type: "image",
-              imageUrl: "",
-              imageObjectUrl: "",
-              overlay: 0.35,
-              height: "66vh",
-              primaryCta: "Book consultation",
-              secondaryCta: "",
-            });
-            setContent(DEFAULT_CONTENT);
-            setFlags(DEFAULT_FLAGS);
-          }}>Reset</button>
-          <button className="btn" onClick={exportHTML}>Export HTML</button>
-        </div>
-      </header>
-
-      {/* CONTROLS */}
-      <section className="controls">
-        <Accordion
-          id="brand"
-          title="Brand"
-          openPanel={openPanel}
-          setOpenPanel={setOpenPanel}
-        >
-          <div className="grid two">
-            <Input
-              label="Name"
-              value={brand.name}
-              onChange={(v) => setBrand({ ...brand, name: v })}
-            />
-            <Input
-              label="Tagline"
-              value={brand.tagline}
-              onChange={(v) => setBrand({ ...brand, tagline: v })}
-            />
-          </div>
-          <Input
-            label="Locations (comma)"
-            value={brand.locations}
-            onChange={(v) => setBrand({ ...brand, locations: v })}
-          />
-          <div className="grid two">
-            <Input
-              label="Primary (ink)"
-              type="color"
-              value={brand.colors.ink}
-              onChange={(v) => setBrand({ ...brand, colors: { ...brand.colors, ink: v } })}
-            />
-            <Input
-              label="Accent"
-              type="color"
-              value={brand.colors.accent}
-              onChange={(v) => setBrand({ ...brand, colors: { ...brand.colors, accent: v } })}
-            />
-          </div>
-          <Input
-            label="Neutral background"
-            type="color"
-            value={brand.colors.neutral}
-            onChange={(v) => setBrand({ ...brand, colors: { ...brand.colors, neutral: v } })}
-          />
-        </Accordion>
-
-        <Accordion
-          id="hero"
-          title="Hero"
-          openPanel={openPanel}
-          setOpenPanel={setOpenPanel}
-        >
-          <div className="grid three">
-            <Select
-              label="Type"
-              value={hero.type}
-              onChange={(v) => setHero({ ...hero, type: v })}
-              options={[
-                ["image", "Image"],
-                ["solid", "Solid color"],
-                ["split", "Split layout"],
-              ]}
-            />
-            <Input
-              label="Height (vh/px)"
-              value={hero.height}
-              onChange={(v) => setHero({ ...hero, height: v })}
-            />
-            <Range
-              label={`Overlay ${Math.round(hero.overlay * 100)}%`}
-              min={0}
-              max={0.7}
-              step={0.01}
-              value={hero.overlay}
-              onChange={(v) => setHero({ ...hero, overlay: v })}
-            />
-          </div>
-
-          <Input
-            label="Hero image URL (optional)"
-            value={hero.imageUrl}
-            onChange={(v) => setHero({ ...hero, imageUrl: v })}
-            placeholder="https://…/image.jpg"
-          />
-          <label className="label">Or upload (local preview only)</label>
-          <input type="file" accept="image/*" onChange={onHeroFile} />
-
-          <div className="grid two" style={{ marginTop: 8 }}>
-            <Input
-              label="Primary CTA"
-              value={hero.primaryCta}
-              onChange={(v) => setHero({ ...hero, primaryCta: v })}
-            />
-            <Input
-              label="Secondary CTA"
-              value={hero.secondaryCta}
-              onChange={(v) => setHero({ ...hero, secondaryCta: v })}
-            />
-          </div>
-        </Accordion>
-
-        <Accordion
-          id="content"
-          title="Content"
-          openPanel={openPanel}
-          setOpenPanel={setOpenPanel}
-        >
-          <TextArea
-            label="Differentiators (one per line)"
-            value={content.differentiators.join("\n")}
-            onChange={(v) =>
-              setContent({ ...content, differentiators: parseLines(v) })
-            }
-          />
-          <TextArea
-            label="Services (one per line)"
-            value={content.services.join("\n")}
-            onChange={(v) => setContent({ ...content, services: parseLines(v) })}
-          />
-          <TextArea
-            label="Testimonials (quote — author, one per line)"
-            value={content.testimonials.map((t) => `${t.quote} — ${t.author}`).join("\n")}
-            onChange={(v) => setContent({ ...content, testimonials: parseTestimonials(v) })}
-          />
-          <Input
-            label="Client logos (comma)"
-            value={content.logos}
-            onChange={(v) => setContent({ ...content, logos: v })}
-          />
-          <TextArea
-            label="Metrics (Label: Value, one per line)"
-            value={content.metrics.map((m) => `${m.label}: ${m.value}`).join("\n")}
-            onChange={(v) => setContent({ ...content, metrics: parseMetrics(v) })}
-          />
-          <Input
-            label="Pricing note"
-            value={content.pricingNote}
-            onChange={(v) => setContent({ ...content, pricingNote: v })}
-          />
-        </Accordion>
-
-        <Accordion
-          id="sections"
-          title="Sections"
-          openPanel={openPanel}
-          setOpenPanel={setOpenPanel}
-        >
-          <Checkbox
-            label="Value"
-            checked={flags.sections.value}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, value: c } })}
-          />
-          <Checkbox
-            label="Services"
-            checked={flags.sections.services}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, services: c } })}
-          />
-          <Checkbox
-            label="Proof (logos, testimonials, metrics)"
-            checked={flags.sections.proof}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, proof: c } })}
-          />
-          <Checkbox
-            label="Pricing"
-            checked={flags.sections.pricing}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, pricing: c } })}
-          />
-          <Checkbox
-            label="Final CTA"
-            checked={flags.sections.cta}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, cta: c } })}
-          />
-          <Checkbox
-            label="Contact"
-            checked={flags.sections.contact}
-            onChange={(c) => setFlags({ ...flags, sections: { ...flags.sections, contact: c } })}
-          />
-        </Accordion>
-
-        <Accordion
-          id="layout"
-          title="Layout & Motion"
-          openPanel={openPanel}
-          setOpenPanel={setOpenPanel}
-        >
-          <div className="grid three">
-            <Input
-              label="Container width (px)"
-              value={String(layout.container)}
-              onChange={(v) => setLayout({ ...layout, container: clampInt(v, 920, 1440) })}
-            />
-            <Input
-              label="Spacing (px)"
-              value={String(layout.spacing)}
-              onChange={(v) => setLayout({ ...layout, spacing: clampInt(v, 8, 24) })}
-            />
-            <Input
-              label="Radius (px)"
-              value={String(layout.radius)}
-              onChange={(v) => setLayout({ ...layout, radius: clampInt(v, 8, 24) })}
-            />
-          </div>
-
-          <Select
-            label="Animation level"
-            value={flags.animation}
-            onChange={(v) => setFlags({ ...flags, animation: v })}
-            options={[
-              ["low", "Low"],
-              ["medium", "Medium"],
-              ["high", "High"],
-            ]}
-          />
-        </Accordion>
-      </section>
-
-      {/* PREVIEW */}
-      <Preview
-        brand={brand}
-        hero={hero}
-        content={content}
-        flags={flags}
-        layout={layout}
-        anim={anim}
-      />
-    </div>
-  );
-}
-
-/* ===================== Preview ===================== */
-
-function Preview({ brand, hero, content, flags, layout, anim }) {
-  // reveal on scroll
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("vis")),
-      { threshold: 0.15 }
-    );
-    document.querySelectorAll(".reveal").forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, [brand, hero, content, flags, layout, anim]);
-
-  const heroBg =
-    hero.imageObjectUrl || hero.imageUrl
-      ? `url(${hero.imageObjectUrl || hero.imageUrl})`
-      : `linear-gradient(120deg, ${brand.colors.ink}, ${brand.colors.accent})`;
-
-  return (
-    <main className="preview">
-      {/* Hero */}
-      <section
-        className="hero"
-        style={{
-          height: hero.height,
-          backgroundImage: heroBg,
-        }}
-      >
-        <div
-          className="hero-scrim"
-          style={{ background: `linear-gradient(180deg, rgba(0,0,0,${hero.overlay}), rgba(0,0,0,${hero.overlay * 0.65}))` }}
-        />
-        <div className="hero-copy">
-          <div className="badge">{brand.locations}</div>
-          <h1 className="ts-h1">{brand.name}</h1>
-          <p className="ts-h6 sub">{brand.tagline}</p>
-          <div className="row">
-            {hero.primaryCta && <a className="btn" href="#contact">{hero.primaryCta}</a>}
-            {hero.secondaryCta && <a className="btn ghost" href="#contact">{hero.secondaryCta}</a>}
-          </div>
-        </div>
-      </section>
-
-      <div className="container">
-        {/* Value */}
-        {flags.sections.value && (
-          <Section title="What you get with us">
-            <CardGrid items={content.differentiators.map((d) => ({ title: d, text: "Built into our day-to-day process." }))} />
-          </Section>
-        )}
-
-        {/* Services */}
-        {flags.sections.services && (
-          <Section title="Services">
-            <CardGrid items={content.services.map((s) => ({ title: s.split(" — ")[0] || s, text: s.split(" — ")[1] || "" }))} />
-          </Section>
-        )}
-
-        {/* Proof */}
-        {flags.sections.proof && (
-          <section className="reveal block">
-            <h2 className="ts-h2">Proof</h2>
-            <div className="logos">
-              {(content.logos || "")
-                .split(",")
-                .map((x) => x.trim())
-                .filter(Boolean)
-                .map((l) => (
-                  <div className="logo-chip" key={l}>
-                    {l}
-                  </div>
-                ))}
-            </div>
-            {!!content.testimonials?.length && (
-              <>
-                <div className="thin" />
-                <div className="testimonials">
-                  {content.testimonials.map((t, i) => (
-                    <div className="card" key={i}>
-                      <div className="q">“{t.quote}”</div>
-                      <div className="a">{t.author}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            {!!content.metrics?.length && (
-              <>
-                <div className="thin" />
-                <div className="metrics">
-                  {content.metrics.map((m, i) => (
-                    <div className="card metric" key={i}>
-                      <div className="v">{m.value}</div>
-                      <div className="l">{m.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
-        {/* Pricing */}
-        {flags.sections.pricing && (
-          <Section title="Pricing" note={content.pricingNote}>
-            <div className="grid3">
-              {[
+  const pages = [
+    {
+      slug: "home",
+      sections: [
+        {
+          type: "hero",
+          title: brand.name,
+          subtitle: brand.tagline || "We make websites pay for themselves.",
+          badge: brand.locations.join(" · "),
+          primaryCta: { label: goalToCTA(brief.goal), href: "#contact" },
+          secondaryCta: { label: "View services", href: "#services" },
+          heroImage: brand.heroImage,
+        },
+        diffs.length ? { type: "value", title: "What you get with us", items: diffs } : null,
+        { type: "services", title: "Services", items: deriveServices() },
+        logos.length || testimonials.length || metrics.length
+          ? { type: "proof", logos, testimonials, metrics }
+          : null,
+        brief.includePricing
+          ? {
+              type: "pricing",
+              title: "Pricing",
+              note: "Transparent estimates. Fixed-fee options available.",
+              tiers: [
                 { name: "Starter", price: "$900", items: ["2–3 pages", "Responsive", "Lead form"] },
-                { name: "Growth", price: "$2,300", items: ["5–7 pages", "SEO + schema", "Booking & Maps", "Integrations"] },
-                { name: "Scale", price: "$7,000", items: ["10+ pages", "Strategy + funnel", "Advanced SEO/analytics", "CRM / e-com"] },
-              ].map((t) => (
-                <div className="card" key={t.name}>
-                  <div className="title">{t.name}</div>
-                  <div className="price">{t.price}</div>
-                  <ul className="list">
-                    {t.items.map((it) => (
-                      <li key={it}>• {it}</li>
-                    ))}
-                  </ul>
-                  <a className="btn" href="#contact" style={{ marginTop: 12 }}>
-                    Choose {t.name}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
+                {
+                  name: "Growth",
+                  price: "$2,300",
+                  items: ["5–7 pages", "SEO + schema", "Booking & Maps", "Integrations"],
+                },
+                {
+                  name: "Scale",
+                  price: "$7,000",
+                  items: ["10+ pages", "Strategy + funnel", "Advanced SEO/analytics", "CRM / e-com"],
+                },
+              ],
+            }
+          : null,
+        {
+          type: "contact",
+          title: "Contact",
+          email: "contact@citeks.net",
+          locations: brand.locations,
+        },
+      ].filter(Boolean),
+    },
+  ];
 
-        {/* CTA */}
-        {flags.sections.cta && (
-          <section className="reveal cta">
-            <h2 className="ts-h2">Ready to move faster?</h2>
-            <a className="btn" href="#contact">
-              {hero.primaryCta || "Get started"}
-            </a>
-          </section>
-        )}
+  return {
+    meta: { brand },
+    nav: [
+      { label: "Home", href: "#home" },
+      { label: "Services", href: "#services" },
+      { label: "Pricing", href: "#pricing" },
+      { label: "Contact", href: "#contact" },
+    ],
+    pages,
+  };
+}
 
-        {/* Contact */}
-        {flags.sections.contact && (
-          <section className="reveal" id="contact">
-            <h2 className="ts-h2">Contact</h2>
-            <p className="muted">Email: <a href="mailto:contact@citeks.net">contact@citeks.net</a></p>
-            <form className="card form">
-              <input placeholder="Name" />
-              <input placeholder="Email" />
-              <textarea rows={4} placeholder="Message" />
-              <button className="btn" type="button">Send</button>
-            </form>
-          </section>
-        )}
+function goalToCTA(goal) {
+  if (/appointment|book/i.test(goal)) return "Book appointment";
+  if (/demo|trial/i.test(goal)) return "Start demo";
+  if (/quote|estimate/i.test(goal)) return "Get quote";
+  return "Book consultation";
+}
+
+function deriveServices() {
+  return [
+    { title: "Strategy & IA", text: "Define goals, sitemap, and decision pathways." },
+    { title: "Design System", text: "Reusable components with accessibility baked in." },
+    { title: "Performance & SEO", text: "Lighthouse-focused builds with schema and structure." },
+  ];
+}
+
+function Header({ brand }) {
+  useEffect(() => {
+    document.documentElement.style.setProperty("--ink", brand.colors.primary);
+    document.documentElement.style.setProperty("--accent", brand.colors.accent);
+    document.documentElement.style.setProperty("--bg", brand.colors.secondary);
+  }, [brand]);
+
+  return (
+    <header className="panel site">
+      <div className="ts-h6" style={{ fontWeight: 600 }}>
+        {brand.name}
       </div>
-    </main>
+      <nav className="ts-h6">
+        <a href="#home">Home</a>
+        <a href="#services">Services</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </header>
   );
 }
 
-/* ===================== UI Bits ===================== */
-
-function Accordion({ id, title, children, openPanel, setOpenPanel }) {
-  const open = openPanel === id;
+function Footer({ brand }) {
   return (
-    <div className="acc">
-      <button className="acc-h" onClick={() => setOpenPanel(open ? "" : id)}>
-        <span>{title}</span>
-        <span className="chev">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && <div className="acc-b">{children}</div>}
-    </div>
+    <footer className="panel site">
+      <div className="ts-h6 tips">
+        © {new Date().getFullYear()} {brand.name}
+      </div>
+      <div className="ts-h6 tips">{(brand.locations || []).join(" · ")}</div>
+    </footer>
   );
 }
 
-function Input({ label, value, onChange, type = "text", placeholder }) {
+function PageView({ dsl, current }) {
+  const page = dsl.pages[0]; // single-page preview
   return (
-    <label className="label">
-      {label}
-      <input
-        className="input"
-        type={type}
-        value={value}
-        placeholder={placeholder || ""}
-        onChange={(e) => onChange(type === "color" ? e.target.value : e.target.value)}
-      />
-    </label>
+    <>
+      {page.sections.map((s, idx) => (
+        <Section key={idx} section={s} brand={dsl.meta.brand} />
+      ))}
+    </>
   );
 }
 
-function TextArea({ label, value, onChange }) {
-  return (
-    <label className="label">
-      {label}
-      <textarea className="input" value={value} onChange={(e) => onChange(e.target.value)} rows={4} />
-    </label>
-  );
-}
-
-function Select({ label, value, onChange, options }) {
-  return (
-    <label className="label">
-      {label}
-      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map(([val, txt]) => (
-          <option key={val} value={val}>
-            {txt}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function Checkbox({ label, checked, onChange }) {
-  return (
-    <label className="label row">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function Section({ title, note, children }) {
-  return (
-    <section className="reveal block">
-      <h2 className="ts-h2">{title}</h2>
-      {note && <p className="muted">{note}</p>}
+function Section({ section, brand }) {
+  const wrap = (children, id) => (
+    <section id={id} className="panel reveal" style={{ padding: 16 }}>
       {children}
     </section>
   );
-}
 
-function CardGrid({ items }) {
-  return (
-    <div className="grid3">
-      {items.map((it, i) => (
-        <div className="card" key={i}>
-          <div className="title">{it.title}</div>
-          {it.text && <div className="muted" style={{ marginTop: 4 }}>{it.text}</div>}
+  if (section.type === "hero") {
+    return (
+      <section className="hero ar-2-1 reveal" id="home">
+        <div
+          className="hero-img"
+          style={{
+            backgroundImage: section.heroImage
+              ? `url(${section.heroImage})`
+              : `linear-gradient(120deg, ${brand.colors.primary}, ${brand.colors.accent})`,
+          }}
+        />
+        <div className="hero-scrim" />
+        <div className="hero-copy">
+          {section.badge ? <div className="badge">{section.badge}</div> : null}
+          <h1 className="ts-h1" style={{ fontWeight: 700, marginTop: 8, color: "#fff" }}>
+            {section.title}
+          </h1>
+          <p className="ts-h6" style={{ marginTop: 8, color: "rgba(255,255,255,.9)" }}>
+            {section.subtitle}
+          </p>
+          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+            {section.primaryCta ? (
+              <a href={section.primaryCta.href} data-action="book-call" className="btn">
+                {section.primaryCta.label}
+              </a>
+            ) : null}
+            {section.secondaryCta ? (
+              <a href={section.secondaryCta.href} data-action="open-contact" className="btn sec">
+                {section.secondaryCta.label}
+              </a>
+            ) : null}
+          </div>
         </div>
-      ))}
-    </div>
-  );
+      </section>
+    );
+  }
+
+  if (section.type === "value") {
+    return wrap(
+      <>
+        <h2 className="ts-h2" style={{ fontWeight: 700 }}>
+          {section.title}
+        </h2>
+        <div className="grid cols-auto" style={{ marginTop: 12 }}>
+          {(section.items || []).map((it, i) => (
+            <div key={i} className="panel" style={{ padding: 16 }}>
+              <div className="ts-h5" style={{ fontWeight: 600 }}>
+                {it.title}
+              </div>
+              <div className="ts-h6 tips" style={{ marginTop: 4 }}>
+                {it.text}
+              </div>
+            </div>
+          ))}
+        </div>
+      </>,
+      "value"
+    );
+  }
+
+  if (section.type === "services") {
+    return wrap(
+      <>
+        <h2 className="ts-h2" style={{ fontWeight: 700 }}>
+          {section.title}
+        </h2>
+        <div className="grid cols-auto" style={{ marginTop: 12 }}>
+          {(section.items || []).map((it, i) => (
+            <div key={i} className="panel" style={{ padding: 16 }}>
+              <div className="ts-h5" style={{ fontWeight: 600 }}>
+                {it.title}
+              </div>
+              <div className="ts-h6 tips" style={{ marginTop: 4 }}>
+                {it.text}
+              </div>
+              <button
+                className="btn"
+                data-action="open-contact"
+                style={{ marginTop: 12 }}
+                title="Talk to us about this service"
+              >
+                Learn more
+              </button>
+            </div>
+          ))}
+        </div>
+      </>,
+      "services"
+    );
+  }
+
+  if (section.type === "proof") {
+    return wrap(
+      <>
+        <h2 className="ts-h2" style={{ fontWeight: 700 }}>
+          Proof
+        </h2>
+        {Array.isArray(section.logos) && section.logos.length ? (
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", marginTop: 12 }}
+          >
+            {section.logos.map((l, i) => (
+              <div key={i} className="logo-chip">
+                {l}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {Array.isArray(section.testimonials) && section.testimonials.length ? (
+          <>
+            <div className="thin" style={{ margin: "12px 0" }} />
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}
+            >
+              {section.testimonials.map((t, i) => (
+                <div key={i} className="panel" style={{ padding: 16 }}>
+                  <div className="ts-h6" style={{ fontStyle: "italic" }}>
+                    “{t.quote}”
+                  </div>
+                  <div className="ts-h6 tips" style={{ marginTop: 8 }}>
+                    {t.author}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {Array.isArray(section.metrics) && section.metrics.length ? (
+          <>
+            <div className="thin" style={{ margin: "12px 0" }} />
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+            >
+              {section.metrics.map((m, i) => (
+                <div key={i} className="panel" style={{ padding: 16 }}>
+                  <div className="ts-h3" style={{ color: "var(--accent)", fontWeight: 700 }}>
+                    {m.value}
+                  </div>
+                  <div className="ts-h6 tips">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </>,
+      "proof"
+    );
+  }
+
+  if (section.type === "pricing") {
+    return wrap(
+      <>
+        <h2 className="ts-h2" style={{ fontWeight: 700 }}>
+          {section.title}
+        </h2>
+        <p className="ts-h6 tips">{section.note}</p>
+        <div className="grid cols-auto" style={{ marginTop: 12 }}>
+          {(section.tiers || []).map((t, i) => (
+            <div key={i} className="panel" style={{ padding: 16 }}>
+              <div className="ts-h5" style={{ fontWeight: 600 }}>
+                {t.name}
+              </div>
+              <div className="ts-h3" style={{ color: "var(--accent)", fontWeight: 700, marginTop: 4 }}>
+                {t.price}
+              </div>
+              <ul className="ts-h6 tips" style={{ marginTop: 8 }}>
+                {t.items.map((x, k) => (
+                  <li key={k} style={{ marginTop: 4 }}>
+                    • {x}
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="btn"
+                style={{ marginTop: 12 }}
+                data-action="select-plan"
+                data-plan={t.name}
+              >
+                Choose {t.name}
+              </button>
+            </div>
+          ))}
+        </div>
+      </>,
+      "pricing"
+    );
+  }
+
+  if (section.type === "contact") {
+    return wrap(
+      <>
+        <h2 className="ts-h2" style={{ fontWeight: 700 }}>
+          {section.title}
+        </h2>
+        <div className="ts-h6" style={{ marginTop: 8 }}>
+          Email:{" "}
+          <a href={`mailto:${section.email}`} style={{ color: "var(--accent)" }}>
+            {section.email}
+          </a>
+        </div>
+        {Array.isArray(section.locations) && section.locations.length ? (
+          <div className="ts-h6 tips" style={{ marginTop: 4 }}>
+            Locations: {section.locations.join(" · ")}
+          </div>
+        ) : null}
+        <form
+          id="contact"
+          className="panel"
+          style={{ padding: 16, marginTop: 12, display: "grid", gap: 12 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            alert("Message sent (demo).");
+          }}
+        >
+          <input placeholder="Name" className="input" />
+          <input placeholder="Email" className="input" />
+          <textarea rows="5" placeholder="Message" className="input" />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" type="submit" data-action="open-contact">
+              Send
+            </button>
+            <a href="#home" className="btn sec">
+              Back to top
+            </a>
+          </div>
+        </form>
+      </>,
+      "contact"
+    );
+  }
+
+  // Fallback
+  return wrap(<div className="ts-h6">Unknown section</div>);
 }
 
-/* ===================== Helpers ===================== */
-
-function clampInt(v, min, max) {
-  const n = parseInt(String(v).replace(/[^\d]/g, ""), 10);
-  if (isNaN(n)) return min;
-  return Math.max(min, Math.min(max, n));
-}
-
-function toFileName(s) {
-  return (s || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
-function buildStaticHTML({ brand, hero, content, flags, layout, anim }) {
-  // Assemble a portable static HTML from current state
-  return `<!doctype html>
+/* ----------------------------------------------
+ * Export current page as plain HTML
+ * --------------------------------------------*/
+function exportHTML(dsl) {
+  const html = `<!doctype html>
 <html lang="en">
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${escapeHtml(brand.name)}</title>
-<style>${globalCss(layout, brand, anim)}</style>
+<title>${dsl.meta.brand.name} — Preview</title>
+<style>${GLOBAL_CSS}</style>
 <body>
-  <main class="preview">
-    <section class="hero" style="height:${hero.height};background-image:${
-    hero.imageUrl
-      ? `url(${hero.imageUrl})`
-      : `linear-gradient(120deg, ${brand.colors.ink}, ${brand.colors.accent})`
-  }">
-      <div class="hero-scrim" style="background:linear-gradient(180deg, rgba(0,0,0,${
-        hero.overlay
-      }), rgba(0,0,0,${hero.overlay * 0.65}))"></div>
-      <div class="hero-copy">
-        <div class="badge">${escapeHtml(brand.locations)}</div>
-        <h1 class="ts-h1">${escapeHtml(brand.name)}</h1>
-        <p class="ts-h6 sub">${escapeHtml(brand.tagline)}</p>
-        <div class="row">
-          ${hero.primaryCta ? `<a class="btn" href="#contact">${escapeHtml(hero.primaryCta)}</a>` : ""}
-          ${hero.secondaryCta ? `<a class="btn ghost" href="#contact">${escapeHtml(hero.secondaryCta)}</a>` : ""}
-        </div>
-      </div>
-    </section>
-    <div class="container">
-      ${
-        flags.sections.value
-          ? `<section class="block">
-              <h2 class="ts-h2">What you get with us</h2>
-              <div class="grid3">
-                ${content.differentiators
-                  .map(
-                    (d) => `<div class="card">
-                      <div class="title">${escapeHtml(d)}</div>
-                      <div class="muted">Built into our day-to-day process.</div>
-                    </div>`
-                  )
-                  .join("")}
-              </div>
-            </section>`
-          : ""
-      }
-      ${
-        flags.sections.services
-          ? `<section class="block">
-              <h2 class="ts-h2">Services</h2>
-              <div class="grid3">
-                ${content.services
-                  .map((s) => {
-                    const [t, tx] = s.split(" — ");
-                    return `<div class="card">
-                      <div class="title">${escapeHtml(t || s)}</div>
-                      ${tx ? `<div class="muted">${escapeHtml(tx)}</div>` : ""}
-                    </div>`;
-                  })
-                  .join("")}
-              </div>
-            </section>`
-          : ""
-      }
-      ${
-        flags.sections.proof
-          ? `<section class="block">
-              <h2 class="ts-h2">Proof</h2>
-              <div class="logos">
-                ${(content.logos || "")
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-                  .map((l) => `<div class="logo-chip">${escapeHtml(l)}</div>`)
-                  .join("")}
-              </div>
-              ${
-                content.testimonials?.length
-                  ? `<div class="thin"></div>
-                     <div class="testimonials">
-                       ${content.testimonials
-                         .map(
-                           (t) => `<div class="card">
-                             <div class="q">“${escapeHtml(t.quote)}”</div>
-                             <div class="a">${escapeHtml(t.author || "")}</div>
-                           </div>`
-                         )
-                         .join("")}
-                     </div>`
-                  : ""
-              }
-              ${
-                content.metrics?.length
-                  ? `<div class="thin"></div>
-                     <div class="metrics">
-                       ${content.metrics
-                         .map(
-                           (m) => `<div class="card metric">
-                             <div class="v">${escapeHtml(m.value)}</div>
-                             <div class="l">${escapeHtml(m.label)}</div>
-                           </div>`
-                         )
-                         .join("")}
-                     </div>`
-                  : ""
-              }
-            </section>`
-          : ""
-      }
-      ${
-        flags.sections.pricing
-          ? `<section class="block">
-              <h2 class="ts-h2">Pricing</h2>
-              <p class="muted">${escapeHtml(content.pricingNote || "")}</p>
-              <div class="grid3">
-                ${[
-                  { name: "Starter", price: "$900", items: ["2–3 pages", "Responsive", "Lead form"] },
-                  { name: "Growth", price: "$2,300", items: ["5–7 pages", "SEO + schema", "Booking & Maps", "Integrations"] },
-                  { name: "Scale", price: "$7,000", items: ["10+ pages", "Strategy + funnel", "Advanced SEO/analytics", "CRM / e-com"] },
-                ]
-                  .map(
-                    (t) => `<div class="card">
-                      <div class="title">${t.name}</div>
-                      <div class="price">${t.price}</div>
-                      <ul class="list">
-                        ${t.items.map((it) => `<li>• ${it}</li>`).join("")}
-                      </ul>
-                      <a class="btn" href="#contact" style="margin-top:12px">Choose ${t.name}</a>
-                    </div>`
-                  )
-                  .join("")}
-              </div>
-            </section>`
-          : ""
-      }
-      ${flags.sections.cta ? `<section class="cta"><h2 class="ts-h2">Ready to move faster?</h2><a class="btn" href="#contact">${escapeHtml(hero.primaryCta || "Get started")}</a></section>` : ""}
-      ${
-        flags.sections.contact
-          ? `<section id="contact">
-              <h2 class="ts-h2">Contact</h2>
-              <p class="muted">Email: <a href="mailto:contact@citeks.net">contact@citeks.net</a></p>
-              <form class="card form">
-                <input placeholder="Name"/>
-                <input placeholder="Email"/>
-                <textarea rows="4" placeholder="Message"></textarea>
-                <button class="btn" type="button">Send</button>
-              </form>
-            </section>`
-          : ""
-      }
-    </div>
+  <header class="panel site">
+    <div class="ts-h6" style="font-weight:600">${dsl.meta.brand.name}</div>
+    <nav class="ts-h6"><a href="#home">Home</a><a href="#services">Services</a><a href="#pricing">Pricing</a><a href="#contact">Contact</a></nav>
+  </header>
+  <main>
+    ${document.getElementById("preview")?.innerHTML || ""}
   </main>
+  <footer class="panel site">
+    <div class="ts-h6 tips">© ${new Date().getFullYear()} ${dsl.meta.brand.name}</div>
+  </footer>
 </body>
 </html>`;
+  const blob = new Blob([html], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "site-preview.html";
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-/* ===================== Styles ===================== */
-
-function globalCss(layout, brand, anim) {
-  const spacing = layout.spacing;
-  const rad = layout.radius;
-  return `
+/* ----------------------------------------------
+ * Global CSS (kept inline to avoid external files)
+ * --------------------------------------------*/
+const GLOBAL_CSS = `
 :root{
-  --ink:${brand.colors.ink}; --accent:${brand.colors.accent}; --bg:${brand.colors.neutral};
-  --hair:${layout.hairline};
+  --bg:#f7f7f7; --panel:#ffffff; --ink:#0f172a; --muted:#475569; --hair:#e5e7eb; --accent:#0ea5e9;
   --p:16px; --h6:18px; --h5:20px; --h4:25px; --h3:31.25px; --h2:39.06px; --h1:48.83px;
-  --container:${layout.container}px; --sp:${spacing}px; --rad:${rad}px;
-  --dur:${anim.dur}ms; --rise:${anim.y}px;
 }
+html,body{height:100%; background:var(--bg); color:var(--ink); font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial}
 *{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;}
-
-.ts-h1{font-size:var(--h1); line-height:1.0; letter-spacing:-.02em; margin:0}
-.ts-h2{font-size:var(--h2); line-height:1.1; letter-spacing:-.018em; margin:0 0 calc(var(--sp)*.5)}
-.ts-h6{font-size:var(--h6); line-height:1.3; letter-spacing:-.005em;}
-
-.toolbar{
-  position:sticky; top:0; z-index:10;
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 10px var(--sp);
-  background: rgba(255,255,255,.8); backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--hair);
-}
-.toolbar .actions{display:flex; gap:8px}
-.btn{display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff; padding:10px 14px; border-radius:999px; border:none; cursor:pointer; text-decoration:none; font-weight:600}
-.btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--hair)}
-
-.controls{
-  max-width: var(--container);
-  margin: calc(var(--sp)) auto;
-  padding: 0 var(--sp);
-  display:grid;
-  gap: var(--sp);
-}
-
-.acc{background:#fff; border:1px solid var(--hair); border-radius: var(--rad); overflow:hidden}
-.acc-h{width:100%; display:flex; justify-content:space-between; align-items:center; padding:12px var(--sp); background:#fff; border:none; cursor:pointer; font-weight:700}
-.acc-b{padding: var(--sp)}
-.label{display:block; font-weight:600; margin-top:6px; margin-bottom:6px}
-.input{width:100%; border:1px solid var(--hair); border-radius:12px; padding:10px 12px; background:#fff}
-.grid.two{display:grid; gap:var(--sp); grid-template-columns: 1fr 1fr}
-.grid.three{display:grid; gap:var(--sp); grid-template-columns: 1fr 1fr 1fr}
-.label.row{display:flex; align-items:center; gap:8px; font-weight:600}
-
-.preview{padding-bottom: calc(var(--sp)*3)}
-.container{max-width: var(--container); padding: 0 var(--sp); margin: calc(var(--sp)*1.5) auto}
-.block{margin-bottom: calc(var(--sp)*2)}
-.grid3{display:grid; gap: var(--sp); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))}
-.card{background:#fff; border:1px solid var(--hair); border-radius: var(--rad); padding: var(--sp); box-shadow: 0 10px 30px rgba(0,0,0,.04)}
-.card .title{font-weight:700; font-size: var(--h5)}
-.card .price{font-weight:800; color:var(--accent); font-size: var(--h3); margin-top:4px}
-.card .list{margin:8px 0 0; padding:0 0 0 18px}
-.muted{color:#475569}
-.thin{height:1px; background:var(--hair); margin: var(--sp) 0}
-.logos{display:grid; gap: var(--sp); grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin: var(--sp) 0}
-.logo-chip{border:1px solid var(--hair); border-radius:12px; padding:10px 12px; text-align:center; background:#fff}
-.testimonials{display:grid; gap: var(--sp); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))}
-.card .q{font-style:italic}
-.card .a{margin-top:8px; color:#64748b}
-.metrics{display:grid; gap: var(--sp); grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))}
-.metric .v{font-weight:800; color:var(--accent); font-size: var(--h3)}
-.metric .l{color:#64748b}
-
-.hero{
-  position:relative; overflow:hidden; border-radius: var(--rad);
-  margin: calc(var(--sp)*1.5) var(--sp) 0; background-position:center; background-size:cover;
-}
-.hero-scrim{position:absolute; inset:0}
-.hero-copy{
-  position:relative; z-index:1; color:#fff; max-width:720px; padding: var(--sp);
-  transform: translateY(var(--rise)); opacity:.001; transition: all var(--dur) ease;
-}
-.hero-copy .row{display:flex; gap:8px; margin-top:8px}
-.badge{display:inline-block; background: rgba(255,255,255,.14); color:#fff; padding:4px 10px; border-radius:999px; font-size: 14px}
-.sub{color: rgba(255,255,255,.92); margin-top:6px}
-
-.cta{display:grid; justify-items:center; text-align:center; gap: 8px; margin-bottom: calc(var(--sp)*2)}
-.form{display:grid; gap:8px}
-
-.reveal{opacity:.001; transform: translateY(var(--rise)); transition: all var(--dur) ease;}
-.reveal.vis{opacity:1; transform:none}
-.hero .hero-copy{opacity:1; transform:none}
-@media (max-width: 720px){
-  .grid.two, .grid.three{grid-template-columns: 1fr}
-}
+.wrap{display:grid; grid-template-columns:minmax(340px, 520px) 1fr; gap:16px; padding:16px; max-width:1440px; margin:0 auto;}
+.panel{background:var(--panel); border:1px solid var(--hair); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.04);}
+.site{padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-radius:16px; margin-bottom:16px}
+.site nav a{color:var(--ink); text-decoration:none; margin-left:16px}
+main{display:grid; gap:16px}
+footer.site{padding:16px; border-radius:16px; margin-top:16px}
+.btn{display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:#fff; padding:10px 14px; border-radius:999px; text-decoration:none; border:none; cursor:pointer;}
+.btn.sec{background:#0f172a; color:#fff}
+.thin{border-top:1px solid var(--hair);}
+.ts-p{font-size:var(--p); line-height:1.5;}
+.ts-h6{font-size:var(--h6); line-height:1.3; letter-spacing:-0.005em;}
+.ts-h5{font-size:var(--h5); line-height:1.3; letter-spacing:-0.01em;}
+.ts-h4{font-size:var(--h4); line-height:1.3; letter-spacing:-0.012em;}
+.ts-h3{font-size:var(--h3); line-height:1.2; letter-spacing:-0.015em;}
+.ts-h2{font-size:var(--h2); line-height:1.1; letter-spacing:-0.018em;}
+.ts-h1{font-size:var(--h1); line-height:1.0; letter-spacing:-0.02em;}
+.grid{display:grid; gap:12px}
+.cols-auto{grid-template-columns:repeat(auto-fit, minmax(260px,1fr));}
+.reveal{opacity:0; transform:translateY(12px); transition:opacity .45s ease, transform .45s ease;}
+.reveal{opacity:1; transform:none;} /* always visible in builder */
+.input{width:100%; padding:10px 12px; border:1px solid var(--hair); border-radius:12px; background:#fff}
+textarea{resize:vertical}
+.tips{color:var(--muted)}
+.logo-chip{display:inline-block; padding:10px 12px; border:1px solid var(--hair); border-radius:12px; text-align:center}
+.badge{display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.15); color:#fff; font-size:14px;}
+.hero{position:relative; overflow:hidden; border-radius:16px; margin-bottom:0;}
+.hero-img{position:absolute; inset:0; background-position:center; background-size:cover; transform:scale(1.02);}
+.hero-scrim{position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.50), rgba(0,0,0,.15));}
+.hero-copy{position:relative; color:#fff; padding:24px; max-width:720px;}
+.ar-2-1{aspect-ratio:2/1;}
 `;
-}
 
-/* ===================== Small controls ===================== */
-
-function Range({ label, min, max, step, value, onChange }) {
-  return (
-    <label className="label">
-      {label}
-      <input
-        className="input"
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-      />
-    </label>
-  );
-}
+/* ----------------------------------------------
+ * (end)
+ * --------------------------------------------*/
