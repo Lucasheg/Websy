@@ -1,98 +1,182 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 /**
  * PreviewShell
- * Renders a full "website-like" preview from a DSL.
- * - Header with nav + CTA
- * - Sections: hero, value, services, proof, pricing, faq, contact
- * - Footer
- * Use click delegation from parent (App) by passing onClick to the wrapper.
+ * - Reads layout tokens from dsl.meta.layout & dsl.meta.tokens
+ * - Renders a complete "site": header → sections → footer
  */
-export default function PreviewShell({ dsl, onClick }) {
+export default function PreviewShell({ dsl }) {
   const brand = dsl?.meta?.brand || {
     name: "Your brand",
     tagline: "",
     colors: { primary: "#0F172A", neutral: "#F7F7F7", accent: "#0EA5E9" },
+    industry: "generic",
+  };
+
+  const layout = dsl?.meta?.layout || {
+    container: "standard",
+    header: "split",
+    navDensity: "normal",
+  };
+
+  const tokens = dsl?.meta?.tokens || {
+    radius: 14,
+    shadow: "0 10px 30px rgba(0,0,0,.06)",
+    rhythm: 16,
+    animMs: 280,
   };
 
   const page = dsl?.pages?.[0] || { sections: [] };
   const sections = Array.isArray(page.sections) ? page.sections : [];
 
-  const navCfg = navItemsFor(brand?.industry, dsl?.content?.goal);
-  const navItems = navCfg.nav;
-  const ctaLabel = navCfg.cta;
+  const widths = { narrow: 880, standard: 1040, wide: 1200 };
+  const contentWidth = widths[layout.container] || widths.standard;
 
-  // Simple style helpers (keeps this component self-contained)
-  const S = {
-    shell: { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden" },
-    header: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 12,
-      padding: "14px 16px",
-      borderBottom: "1px solid #e5e7eb",
-      position: "sticky",
-      top: 0,
-      background: "#fff",
-      zIndex: 5,
-    },
-    brand: { fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" },
-    nav: { display: "flex", gap: 16, alignItems: "center" },
-    link: { textDecoration: "none", color: "#0f172a", fontSize: 14 },
-    btn: {
-      display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px",
-      borderRadius: 999, background: brand.colors?.accent || "#0EA5E9", color: "#fff",
-      border: "none", fontSize: 14, cursor: "pointer", textDecoration: "none"
-    },
-    main: { display: "grid", gap: 16, padding: 16 },
-    panel: { border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, background: "#fff" },
-    h1: { fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", margin: 0, fontWeight: 700 },
-    h2: { fontSize: 28, lineHeight: 1.1, letterSpacing: "-0.018em", margin: 0, fontWeight: 700 },
-    h3: { fontSize: 20, lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, fontWeight: 600 },
-    p: { fontSize: 16, lineHeight: 1.5, color: "#475569", margin: "8px 0 0" },
-    gridAuto: { display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" },
-    chip: { display: "inline-block", padding: "8px 12px", border: "1px solid #e5e7eb", borderRadius: 12 },
-    hero: {
-      position: "relative", overflow: "hidden", borderRadius: 14, minHeight: 280,
-      background: `linear-gradient(120deg, ${brand.colors?.primary || "#0F172A"}, ${brand.colors?.accent || "#0EA5E9"})`
-    },
-    heroCopy: { position: "relative", color: "#fff", padding: 20, maxWidth: 760 },
-    scrim: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.15))" },
-    footer: { padding: 16, borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }
-  };
+  // styles derived from tokens
+  const S = useMemo(() => {
+    const border = "1px solid #e5e7eb";
+    return {
+      shell: {
+        background: "#fff",
+        border,
+        borderRadius: tokens.radius,
+        overflow: "hidden",
+        boxShadow: tokens.shadow,
+      },
+      header: {
+        display: "grid",
+        gridTemplateColumns:
+          layout.header === "centered" ? "1fr" : layout.header === "minimal" ? "auto 1fr" : "auto 1fr auto",
+        alignItems: "center",
+        gap: 12,
+        padding: "14px 16px",
+        borderBottom: "1px solid #e5e7eb",
+        position: "sticky",
+        top: 0,
+        background: "#fff",
+        zIndex: 5,
+      },
+      brand: { fontWeight: 700, fontSize: 18, letterSpacing: "-0.01em" },
+      nav: {
+        display: "flex",
+        gap: layout.navDensity === "dense" ? 12 : layout.navDensity === "sparse" ? 24 : 16,
+        alignItems: "center",
+        justifyContent: layout.header === "centered" ? "center" : "flex-start",
+      },
+      right: {
+        display: "flex",
+        gap: 10,
+        justifyContent: "flex-end",
+      },
+      link: { textDecoration: "none", color: "#0f172a", fontSize: 14 },
+      btn: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 12px",
+        borderRadius: 999,
+        background: brand.colors?.accent || "#0EA5E9",
+        color: "#fff",
+        border: "none",
+        fontSize: 14,
+        cursor: "pointer",
+        textDecoration: "none",
+        transition: `transform ${tokens.animMs}ms ease, filter ${tokens.animMs}ms ease`,
+      },
+      btnAlt: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 12px",
+        borderRadius: 999,
+        background: "#0f172a",
+        color: "#fff",
+        border: "none",
+        fontSize: 14,
+        cursor: "pointer",
+        textDecoration: "none",
+        transition: `transform ${tokens.animMs}ms ease, filter ${tokens.animMs}ms ease`,
+      },
+      main: { display: "grid", gap: tokens.rhythm, padding: tokens.rhythm },
+      panel: {
+        border,
+        borderRadius: tokens.radius,
+        padding: tokens.rhythm,
+        background: "#fff",
+        boxShadow: tokens.shadow,
+      },
+      h1: { fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", margin: 0, fontWeight: 700 },
+      h2: { fontSize: 28, lineHeight: 1.1, letterSpacing: "-0.018em", margin: 0, fontWeight: 700 },
+      h3: { fontSize: 20, lineHeight: 1.25, letterSpacing: "-0.01em", margin: 0, fontWeight: 600 },
+      p: { fontSize: 16, lineHeight: 1.5, color: "#475569", margin: "8px 0 0" },
+      gridAuto: { display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" },
+      chip: { display: "inline-block", padding: "8px 12px", border, borderRadius: 12, background: "#fff" },
+      hero: {
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: tokens.radius,
+        minHeight: 320,
+        background: `linear-gradient(120deg, ${brand.colors?.primary || "#0F172A"}, ${
+          brand.colors?.accent || "#0EA5E9"
+        })`,
+      },
+      heroCopy: { position: "relative", color: "#fff", padding: 24, maxWidth: 760 },
+      scrim: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.15))" },
+      footer: {
+        padding: tokens.rhythm,
+        borderTop: "1px solid #e5e7eb",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderRadius: tokens.radius,
+      },
+      container: { maxWidth: contentWidth, margin: "0 auto" },
+    };
+  }, [tokens, layout, brand, contentWidth]);
+
+  const nav = navItemsFor(brand.industry, dsl?.content?.goal);
 
   return (
-    <div style={S.shell} onClick={onClick}>
-      {/* Header */}
-      <header style={S.header}>
-        <div style={S.brand}>{brand.name || "Brand"}</div>
-        <nav style={S.nav}>
-          {navItems.map((label) => (
-            <a key={label} href={`#${slugify(label)}`} style={S.link}>{label}</a>
+    <div style={S.container}>
+      <div style={S.shell}>
+        {/* Header */}
+        <header style={S.header}>
+          <div style={S.brand}>{brand.name || "Brand"}</div>
+
+          <nav style={S.nav}>
+            {nav.nav.map((label) => (
+              <a key={label} href={`#${slugify(label)}`} style={S.link}>
+                {label}
+              </a>
+            ))}
+          </nav>
+
+          {layout.header !== "centered" && (
+            <div style={S.right}>
+              <a href="#contact" className="btn" data-action="book-call" style={S.btn}>
+                {nav.cta}
+              </a>
+            </div>
+          )}
+        </header>
+
+        {/* Sections */}
+        <main style={S.main}>
+          {sections.map((s, i) => (
+            <Section key={i} s={s} brand={brand} S={S} />
           ))}
-          <a href="#contact" className="btn" data-action="book-call" style={S.btn}>
-            {ctaLabel}
+        </main>
+
+        {/* Footer */}
+        <footer style={S.footer}>
+          <div style={{ fontSize: 14, color: "#475569" }}>
+            © {new Date().getFullYear()} {brand.name || "Brand"}
+          </div>
+          <a href="#contact" data-action="open-contact" style={S.btnAlt}>
+            Contact
           </a>
-        </nav>
-      </header>
-
-      {/* Main sections from DSL */}
-      <main style={S.main}>
-        {sections.map((sec, i) => (
-          <Section key={i} s={sec} brand={brand} styles={S} />
-        ))}
-      </main>
-
-      {/* Footer */}
-      <footer style={S.footer}>
-        <div style={{ fontSize: 14, color: "#475569" }}>
-          © {new Date().getFullYear()} {brand.name || "Brand"}
-        </div>
-        <a href="#contact" data-action="open-contact" style={{ ...S.btn, background: "#0f172a" }}>
-          Contact
-        </a>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -100,7 +184,6 @@ export default function PreviewShell({ dsl, onClick }) {
 /* ---------- Helpers ---------- */
 
 function navItemsFor(industry, goal) {
-  // Minimal, safe defaults; expand as you add industries
   switch ((industry || "").toLowerCase()) {
     case "law":
       return { nav: ["Services", "Clients", "Pricing", "Contact"], cta: "Book consultation" };
@@ -124,7 +207,7 @@ function slugify(s) {
 
 /* ---------- Section renderer ---------- */
 
-function Section({ s, brand, styles: S }) {
+function Section({ s, brand, S }) {
   if (!s || !s.type) return null;
 
   // HERO
@@ -135,10 +218,12 @@ function Section({ s, brand, styles: S }) {
         {img ? (
           <div
             style={{
-              position: "absolute", inset: 0,
+              position: "absolute",
+              inset: 0,
               backgroundImage: `url(${img})`,
-              backgroundSize: "cover", backgroundPosition: "center",
-              filter: "contrast(1.05) saturate(1.05)"
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "contrast(1.05) saturate(1.05)",
             }}
             aria-hidden
           />
@@ -146,10 +231,15 @@ function Section({ s, brand, styles: S }) {
         <div style={S.scrim} aria-hidden />
         <div style={S.heroCopy}>
           {s.badge ? (
-            <span style={{
-              display: "inline-block", padding: "4px 10px",
-              background: "rgba(255,255,255,.18)", borderRadius: 999, fontSize: 14
-            }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "4px 10px",
+                background: "rgba(255,255,255,.18)",
+                borderRadius: 999,
+                fontSize: 14,
+              }}
+            >
               {s.badge}
             </span>
           ) : null}
@@ -162,7 +252,7 @@ function Section({ s, brand, styles: S }) {
               </a>
             ) : null}
             {s.secondaryCta ? (
-              <a href={s.secondaryCta.href || "#contact"} data-action="open-contact" style={{ ...S.btn, background: "#0f172a" }}>
+              <a href={s.secondaryCta.href || "#contact"} data-action="open-contact" style={S.btnAlt}>
                 {s.secondaryCta.label}
               </a>
             ) : null}
@@ -197,7 +287,9 @@ function Section({ s, brand, styles: S }) {
         {(s.logos && s.logos.length) ? (
           <div style={{ ...S.gridAuto, marginTop: 12 }}>
             {s.logos.map((l, i) => (
-              <div key={i} style={S.chip}>{l}</div>
+              <div key={i} style={S.chip}>
+                {l}
+              </div>
             ))}
           </div>
         ) : null}
@@ -205,9 +297,7 @@ function Section({ s, brand, styles: S }) {
           <div style={{ ...S.gridAuto, marginTop: 12 }}>
             {s.testimonials.map((t, i) => (
               <div key={i} style={S.panel}>
-                <div style={{ ...S.p, fontStyle: "italic", color: "#0f172a" }}>
-                  “{t.quote}”
-                </div>
+                <div style={{ ...S.p, fontStyle: "italic", color: "#0f172a" }}>“{t.quote}”</div>
                 {t.author ? <div style={{ ...S.p, marginTop: 8 }}>{t.author}</div> : null}
               </div>
             ))}
@@ -239,13 +329,13 @@ function Section({ s, brand, styles: S }) {
               <div style={S.h3}>{t.name}</div>
               <div style={{ ...S.h2, color: brand.colors?.accent || "#0EA5E9", marginTop: 4 }}>{t.price}</div>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: "#475569", fontSize: 14 }}>
-                {(t.items || []).map((x, i) => <li key={i} style={{ marginTop: 4 }}>{x}</li>)}
+                {(t.items || []).map((x, i) => (
+                  <li key={i} style={{ marginTop: 4 }}>
+                    {x}
+                  </li>
+                ))}
               </ul>
-              <button
-                data-action="select-plan"
-                data-plan={t.name}
-                style={{ ...S.btn, marginTop: 12 }}
-              >
+              <button data-action="select-plan" data-plan={t.name} style={{ ...S.btn, marginTop: 12 }}>
                 Choose {t.name}
               </button>
             </div>
@@ -279,23 +369,26 @@ function Section({ s, brand, styles: S }) {
         <h2 style={S.h2}>{s.title || "Contact"}</h2>
         {s.email ? (
           <p style={S.p}>
-            Email: <a href={`mailto:${s.email}`} style={{ color: brand.colors?.accent || "#0EA5E9" }}>{s.email}</a>
+            Email:{" "}
+            <a href={`mailto:${s.email}`} style={{ color: brand.colors?.accent || "#0EA5E9" }}>
+              {s.email}
+            </a>
           </p>
         ) : null}
-        {(s.locations && s.locations.length) ? (
-          <p style={S.p}>Locations: {s.locations.join(" · ")}</p>
-        ) : null}
+        {(s.locations && s.locations.length) ? <p style={S.p}>Locations: {s.locations.join(" · ")}</p> : null}
         <form style={{ display: "grid", gap: 10, marginTop: 12 }}>
           <input className="input" placeholder="Name" style={inputStyle()} />
           <input className="input" placeholder="Email" style={inputStyle()} />
           <textarea className="input" rows={5} placeholder="Message" style={inputStyle()} />
-          <button className="btn" data-action="open-contact" style={{ ...S.btn }}>Send</button>
+          <button className="btn" data-action="open-contact" style={S.btnAlt}>
+            Send
+          </button>
         </form>
       </section>
     );
   }
 
-  // Fallback generic panel
+  // Fallback
   return (
     <section id={slugify(s.title || s.type)} style={S.panel}>
       {s.title ? <h2 style={S.h2}>{s.title}</h2> : <h2 style={S.h2}>{s.type}</h2>}
@@ -311,6 +404,6 @@ function inputStyle() {
     border: "1px solid #e5e7eb",
     borderRadius: 12,
     background: "#fff",
-    fontSize: 14
+    fontSize: 14,
   };
 }
