@@ -1,0 +1,56 @@
+{
+  "law": {
+    "label": "Law",
+    "defaults": {
+      "colors": { "primary": "#0F172A", "neutral": "#F7F7F7", "accent": "#0EA5E9" },
+      "heroStyle": "editorial",
+      "animationLevel": "medium"
+    },
+    "sections": ["hero", "value", "proof", "pricing", "contact"]
+  },
+  "clinic": {
+    "label": "Clinic",
+    "defaults": {
+      "colors": { "primary": "#0B132B", "neutral": "#F6F8FB", "accent": "#3A86FF" },
+      "heroStyle": "image",
+      "animationLevel": "low"
+    },
+    "sections": ["hero", "value", "proof", "pricing", "contact"]
+  },
+  "gym": {
+    "label": "Gym",
+    "defaults": {
+      "colors": { "primary": "#111827", "neutral": "#F5F5F5", "accent": "#10B981" },
+      "heroStyle": "image",
+      "animationLevel": "high"
+    },
+    "sections": ["hero", "value", "proof", "pricing", "contact"]
+  },
+  "saas": {
+    "label": "SaaS",
+    "defaults": {
+      "colors": { "primary": "#0F172A", "neutral": "#F6F7FB", "accent": "#8B5CF6" },
+      "heroStyle": "product",
+      "animationLevel": "medium"
+    },
+    "sections": ["hero", "value", "proof", "pricing", "contact"]
+  },
+  "restaurant": {
+    "label": "Restaurant",
+    "defaults": {
+      "colors": { "primary": "#1F2937", "neutral": "#FAFAF9", "accent": "#F59E0B" },
+      "heroStyle": "image",
+      "animationLevel": "low"
+    },
+    "sections": ["hero", "value", "proof", "contact"]
+  },
+  "generic": {
+    "label": "Generic",
+    "defaults": {
+      "colors": { "primary": "#0F172A", "neutral": "#F7F7F7", "accent": "#0EA5E9" },
+      "heroStyle": "editorial",
+      "animationLevel": "medium"
+    },
+    "sections": ["hero", "value", "proof", "pricing", "contact"]
+  }
+}
