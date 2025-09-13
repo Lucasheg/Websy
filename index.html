@@ -1,15 +1,17 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CITEKS Website Maker</title>
+    <meta name="robots" content="noindex,nofollow" />
+    <style>
+      html,body{margin:0;padding:0;background:#f6f7f9;color:#0f172a;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto}
+      #root{min-height:100vh}
+    </style>
   </head>
-  <body style="margin:0;background:#f7f7f7">
-    <!-- IMPORTANT: this id must be exactly "root" -->
-    <div id="root"></div>
-
-    <!-- Vite will swap this to the built assets in dist -->
+  <body>
+    <div id="root">Loading…</div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
