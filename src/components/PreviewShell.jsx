@@ -1,364 +1,342 @@
 // src/components/PreviewShell.jsx
-import React from "react";
+import React, { useMemo } from "react";
+
+/** Normalize theme whether it's {primary,...} or {colors:{primary,...}} */
+function normalizeTheme(raw = {}) {
+  const primary =
+    raw.primary ?? raw.colors?.primary ?? "#0F172A";
+  const accent =
+    raw.accent ?? raw.colors?.accent ?? "#0EA5E9";
+  const neutral =
+    raw.neutral ?? raw.colors?.neutral ?? "#F6F7F9";
+  const radius = raw.radius ?? 16;
+  const container = raw.container ?? 1200;
+  const base = raw.base ?? 16;
+  const scale = raw.scale ?? 1.25;
+  const card = raw.card ?? "soft"; // soft|outline|minimal
+  const animation = raw.animation ?? "medium"; // low|medium|high
+  return { primary, accent, neutral, radius, container, base, scale, card, animation };
+}
+
+function type(theme) {
+  const h6 = Math.round(theme.base * theme.scale ** 1);
+  const h5 = Math.round(theme.base * theme.scale ** 2);
+  const h4 = Math.round(theme.base * theme.scale ** 3);
+  const h3 = Math.round(theme.base * theme.scale ** 4);
+  const h2 = Math.round(theme.base * theme.scale ** 5);
+  const h1 = Math.round(theme.base * theme.scale ** 6);
+  return { p: theme.base, h6, h5, h4, h3, h2, h1 };
+}
+
+function cardStyle(theme) {
+  if (theme.card === "outline") {
+    return { border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" };
+  }
+  if (theme.card === "minimal") {
+    return { borderRadius: theme.radius, background: "#fff" };
+  }
+  // soft
+  return { border: "1px solid #eef0f2", borderRadius: theme.radius, background: "#fff", boxShadow: "0 10px 30px rgba(0,0,0,.05)" };
+}
+
+function anim(theme) {
+  const dur = theme.animation === "high" ? "700ms" : theme.animation === "low" ? "200ms" : "450ms";
+  return { transition: `opacity ${dur} ease, transform ${dur} ease` };
+}
 
 export default function PreviewShell({ dsl }) {
-  if (!dsl) return null;
-  const brand = dsl.meta.brand;
-  const page = dsl.pages[0];
-
-  // Design tokens
-  const ink = brand.colors.primary;
-  const accent = brand.colors.accent;
-  const bg = brand.colors.secondary;
+  const theme = useMemo(() => normalizeTheme(dsl?.meta?.theme), [dsl]);
+  const t = useMemo(() => type(theme), [theme]);
+  const brand = dsl?.meta?.brand || {};
+  const nav = dsl?.meta?.nav || ["Home", "Services", "Pricing", "Contact"];
+  const sections = (dsl?.pages?.[0]?.sections) || [];
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 16,
-        overflow: "hidden",
-        boxShadow: "0 10px 30px rgba(0,0,0,.06)",
-      }}
-    >
-      {page.sections.map((s, i) => (
-        <Section key={i} s={s} brand={brand} ink={ink} bg={bg} accent={accent} />
-      ))}
+    <div style={{ background: theme.neutral, color: theme.primary, fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial' }}>
+      {/* Header */}
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          backdropFilter: "saturate(1.05) blur(6px)",
+          background: "rgba(255,255,255,.7)",
+          borderBottom: "1px solid #e5e7eb"
+        }}
+      >
+        <div style={{ maxWidth: theme.container, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {brand.logoUrl ? (
+              <img src={brand.logoUrl} alt={brand.name || "Logo"} style={{ height: 28 }} />
+            ) : (
+              <div style={{ fontWeight: 700, fontSize: t.h6 }}>{brand.name || "Your brand"}</div>
+            )}
+          </div>
+          <nav style={{ display: "flex", gap: 16, fontSize: t.h6, alignItems: "center" }}>
+            {nav.map((item) => (
+              <a key={item} href={`#${item.toLowerCase()}`} style={{ color: theme.primary, textDecoration: "none", opacity: .9 }}>
+                {item}
+              </a>
+            ))}
+            <a
+              href="#contact"
+              data-action="book-call"
+              style={{ background: theme.accent, color: "#fff", padding: "8px 14px", borderRadius: 999, textDecoration: "none" }}
+            >
+              Get started
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      {/* Sections */}
+      <main style={{ maxWidth: theme.container, margin: "0 auto", padding: "16px" }}>
+        {sections.map((s, i) => (
+          <section key={i} style={{ margin: "16px 0" }}>
+            {renderSection(s, theme, t)}
+          </section>
+        ))}
+      </main>
+
+      {/* Footer */}
+      <footer style={{ borderTop: "1px solid #e5e7eb", marginTop: 24, background: "#fff" }}>
+        <div style={{ maxWidth: theme.container, margin: "0 auto", padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: t.h6 }}>
+          <div>© {new Date().getFullYear()} {brand.name || "Your brand"}</div>
+          <div style={{ opacity: .7 }}>{brand.tagline || "We make it simple to choose you."}</div>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function Section({ s, brand, ink, bg, accent }) {
-  const wrap = (children, style = {}) => (
-    <section style={{ padding: "28px 24px", ...style }}>
-      <div style={{ maxWidth: 1040, margin: "0 auto" }}>{children}</div>
-    </section>
-  );
+/* ---------- section renderers ---------- */
 
-  if (s.type === "header") {
+function renderSection(s, theme, t) {
+  try {
+    switch (s?.type) {
+      case "hero":
+        return renderHero(s, theme, t);
+      case "features":
+        return renderFeatures(s, theme, t);
+      case "gallery":
+        return renderGallery(s, theme, t);
+      case "testimonials":
+        return renderTestimonials(s, theme, t);
+      case "pricing":
+        return renderPricing(s, theme, t);
+      case "faq":
+        return renderFaq(s, theme, t);
+      case "contact":
+        return renderContact(s, theme, t);
+      default:
+        return null;
+    }
+  } catch (err) {
     return (
-      <header
-        style={{
-          padding: "14px 24px",
-          borderBottom: "1px solid #e5e7eb",
-          position: "sticky",
-          top: 0,
-          background: "#fff",
-          zIndex: 1,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1040,
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: 18, color: ink }}>{brand.name}</div>
-          <nav style={{ display: "flex", gap: 16, fontSize: 14 }}>
-            {s.nav?.map((item) => (
-              <a key={item} href={"#"+item.toLowerCase()} style={{ color: "#475569", textDecoration: "none" }}>
-                {item}
-              </a>
-            ))}
-          </nav>
-          <a
-            href="#contact"
-            data-action="open-contact"
-            style={{
-              padding: "8px 12px",
-              background: accent,
-              color: "#fff",
-              borderRadius: 999,
-              fontSize: 14,
-              textDecoration: "none",
-            }}
-          >
-            Contact
-          </a>
-        </div>
-      </header>
+      <div style={{ padding: 16, ...cardStyle(theme) }}>
+        <div style={{ fontSize: t.h5, fontWeight: 700, color: "#DC2626" }}>A section failed to render</div>
+        <div style={{ marginTop: 8, fontSize: t.h6 }}>{String(err?.message || err)}</div>
+      </div>
     );
   }
-
-  if (s.type === "hero") {
-    return (
-      <section
-        style={{
-          position: "relative",
-          background: s.heroImage
-            ? `url(${s.heroImage}) center/cover no-repeat`
-            : `linear-gradient(120deg, ${ink}, ${accent})`,
-          color: "#fff",
-          padding: "64px 24px",
-        }}
-      >
-        <div style={{ maxWidth: 1040, margin: "0 auto" }}>
-          <div style={{ opacity: 0.9, fontSize: 14 }}>{brand.tagline ? "" : ""}</div>
-          <h1 style={{ fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.02em", fontWeight: 700, marginTop: 8 }}>
-            {s.title}
-          </h1>
-          <p style={{ fontSize: 18, opacity: 0.9, marginTop: 8 }}>{s.subtitle}</p>
-          <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-            {s.primaryCta && (
-              <a
-                href={s.primaryCta.href}
-                data-action="open-contact"
-                style={{
-                  padding: "10px 14px",
-                  background: "#fff",
-                  color: "#0f172a",
-                  borderRadius: 999,
-                  textDecoration: "none",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                {s.primaryCta.label}
-              </a>
-            )}
-            {s.secondaryCta && (
-              <a
-                href={s.secondaryCta.href}
-                style={{
-                  padding: "10px 14px",
-                  background: "rgba(255,255,255,.14)",
-                  color: "#fff",
-                  borderRadius: 999,
-                  textDecoration: "none",
-                  fontSize: 14,
-                }}
-              >
-                {s.secondaryCta.label}
-              </a>
-            )}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (s.type === "features") {
-    return wrap(
-      <>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: ink }}>{s.title}</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          {(s.items || []).map((it, idx) => (
-            <div key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 16 }}>
-              <div style={{ fontWeight: 600, color: ink }}>{it.title}</div>
-              <div style={{ color: "#475569", marginTop: 6 }}>{it.text}</div>
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (s.type === "services") {
-    return wrap(
-      <>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: ink }}>{s.title}</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          {(s.items || []).map((it, idx) => (
-            <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16 }}>
-              <div style={{ fontWeight: 600, color: ink }}>{it.title}</div>
-              <div style={{ color: "#475569", marginTop: 6 }}>{it.text}</div>
-              <a
-                href="#contact"
-                data-action="open-contact"
-                style={{
-                  display: "inline-block",
-                  marginTop: 10,
-                  fontSize: 14,
-                  color: accent,
-                  textDecoration: "none",
-                }}
-              >
-                Enquire →
-              </a>
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (s.type === "products") {
-    return wrap(
-      <>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: ink }}>{s.title}</h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          {(s.cards || []).map((c, idx) => (
-            <div key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
-              <div
-                style={{
-                  background: c.img ? `url(${c.img}) center/cover` : "#f1f5f9",
-                  aspectRatio: "3 / 2",
-                }}
-              />
-              <div style={{ padding: 16 }}>
-                <div style={{ fontWeight: 600, color: ink }}>{c.title}</div>
-                <div style={{ color: "#475569", marginTop: 6 }}>{c.text}</div>
-                <a
-                  href={c.cta?.href || "#"}
-                  data-action="toast"
-                  data-message={`Open ${c.title}`}
-                  style={{ display: "inline-block", marginTop: 10, fontSize: 14, color: accent, textDecoration: "none" }}
-                >
-                  {c.cta?.label || "View"} →
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (s.type === "testimonial") {
-    return (
-      <section style={{ padding: "28px 24px", background: bg }}>
-        <div style={{ maxWidth: 820, margin: "0 auto", textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontStyle: "italic", color: ink }}>{s.quote}</div>
-          <div style={{ marginTop: 8, color: "#475569" }}>— {s.author}</div>
-        </div>
-      </section>
-    );
-  }
-
-  if (s.type === "faq") {
-    return wrap(
-      <>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: ink }}>{s.title}</h2>
-        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-          {(s.items || []).map((it, idx) => (
-            <details key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
-              <summary style={{ cursor: "pointer", fontWeight: 600, color: ink }}>{it.q}</summary>
-              <div style={{ color: "#475569", marginTop: 6 }}>{it.a}</div>
-            </details>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (s.type === "contact") {
-    return wrap(
-      <>
-        <h2 id="contact" style={{ fontSize: 28, fontWeight: 700, color: ink }}>{s.title}</h2>
-        <div style={{ color: "#475569", marginTop: 6 }}>
-          Email:{" "}
-          <a href={`mailto:${s.email}`} style={{ color: accent, textDecoration: "none" }}>
-            {s.email}
-          </a>
-          {s.locations?.length ? (
-            <span style={{ marginLeft: 8, opacity: 0.8 }}>• {s.locations.join(" · ")}</span>
-          ) : null}
-        </div>
-        <form
-          className="preview-contact-form"
-          style={{
-            marginTop: 12,
-            display: "grid",
-            gap: 8,
-            border: "1px solid #e5e7eb",
-            borderRadius: 12,
-            padding: 16,
-          }}
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <input placeholder="Name" style={field} />
-          <input placeholder="Email" type="email" style={field} />
-          <textarea placeholder="Message" rows={5} style={field} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              data-action="open-contact"
-              style={{ ...btn, background: accent, color: "#fff" }}
-            >
-              Send message
-            </button>
-            <button
-              data-action="book-call"
-              style={{ ...btn, background: "#0f172a", color: "#fff" }}
-            >
-              Book a call
-            </button>
-          </div>
-        </form>
-      </>
-    );
-  }
-
-  if (s.type === "footer") {
-    return (
-      <footer style={{ padding: "20px 24px", borderTop: "1px solid #e5e7eb", background: "#fff" }}>
-        <div
-          style={{
-            maxWidth: 1040,
-            margin: "0 auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            color: "#475569",
-            fontSize: 14,
-          }}
-        >
-          <div>© {new Date().getFullYear()} {s.company}</div>
-          <nav style={{ display: "flex", gap: 16 }}>
-            {s.nav?.map((item) => (
-              <a key={item} href={"#"+item.toLowerCase()} style={{ color: "#475569", textDecoration: "none" }}>
-                {item}
-              </a>
-            ))}
-          </nav>
-        </div>
-      </footer>
-    );
-  }
-
-  return null;
 }
 
-const field = {
-  width: "100%",
-  padding: "10px 12px",
-  border: "1px solid #e5e7eb",
-  borderRadius: 10,
-  background: "#fff",
-  fontSize: 14,
-};
+function renderHero(s, theme, t) {
+  const hasImage = !!s?.heroImage;
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: theme.radius,
+        minHeight: 360,
+        color: hasImage ? "#fff" : theme.primary,
+        background: hasImage ? "#000" : `linear-gradient(120deg, ${theme.primary}, ${theme.accent})`,
+        ...anim(theme)
+      }}
+    >
+      {hasImage && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${s.heroImage})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              opacity: .9
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.25))"
+            }}
+          />
+        </>
+      )}
+      <div style={{ position: "relative", padding: 24 }}>
+        {s?.badge && (
+          <span style={{ display: "inline-block", padding: "6px 10px", borderRadius: 999, background: hasImage ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.25)", color: "#fff", fontSize: t.h6 }}>
+            {s.badge}
+          </span>
+        )}
+        <h1 style={{ marginTop: 8, fontSize: t.h1, lineHeight: 1.05, fontWeight: 800 }}>
+          {s?.title || "Make your best first impression"}
+        </h1>
+        <p style={{ marginTop: 8, fontSize: t.h5, opacity: hasImage ? .95 : .9 }}>
+          {s?.subtitle || "Modern, fast, accessible websites that convert."}
+        </p>
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          {s?.primaryCta?.label && (
+            <a
+              href={s.primaryCta.href || "#contact"}
+              data-action="open-contact"
+              style={{ background: theme.accent, color: "#fff", padding: "10px 14px", borderRadius: 999, textDecoration: "none" }}
+            >
+              {s.primaryCta.label}
+            </a>
+          )}
+          {s?.secondaryCta?.label && (
+            <a
+              href={s.secondaryCta.href || "#contact"}
+              style={{ background: "#fff", color: theme.primary, padding: "10px 14px", borderRadius: 999, textDecoration: "none" }}
+            >
+              {s.secondaryCta.label}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-const btn = {
-  padding: "10px 14px",
-  borderRadius: 999,
-  border: "none",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 600,
-  textDecoration: "none",
-};
+function renderFeatures(s, theme, t) {
+  const items = Array.isArray(s?.items) ? s.items : [];
+  return (
+    <div style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}> {s?.title || "What you’ll get"} </div>
+      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        {items.map((it, idx) => (
+          <div key={idx} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" }}>
+            <div style={{ fontSize: t.h5, fontWeight: 700 }}>{it?.title || "Untitled"}</div>
+            <div style={{ marginTop: 6, fontSize: t.h6, color: "#475569" }}>{it?.text || ""}</div>
+          </div>
+        ))}
+        {items.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add feature items in the Maker.</div>}
+      </div>
+    </div>
+  );
+}
+
+function renderGallery(s, theme, t) {
+  const imgs = Array.isArray(s?.images) ? s.images : [];
+  return (
+    <div style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Gallery"}</div>
+      <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+        {imgs.map((src, i) => (
+          <div key={i} style={{ borderRadius: theme.radius, overflow: "hidden", border: "1px solid #e5e7eb" }}>
+            <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+          </div>
+        ))}
+        {imgs.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add image URLs in the Maker.</div>}
+      </div>
+    </div>
+  );
+}
+
+function renderTestimonials(s, theme, t) {
+  const quotes = Array.isArray(s?.quotes) ? s.quotes : [];
+  return (
+    <div style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Testimonials"}</div>
+      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+        {quotes.map((q, i) => (
+          <div key={i} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius }}>
+            <div style={{ fontStyle: "italic", fontSize: t.h6 }}>“{q?.quote || ""}”</div>
+            <div style={{ marginTop: 8, fontSize: t.h6, color: "#64748B" }}>{q?.author || ""}</div>
+          </div>
+        ))}
+        {quotes.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add testimonials in the Maker.</div>}
+      </div>
+    </div>
+  );
+}
+
+function renderPricing(s, theme, t) {
+  const tiers = Array.isArray(s?.tiers) ? s.tiers : [];
+  return (
+    <div style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Pricing"}</div>
+      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+        {tiers.map((p, i) => (
+          <div key={i} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" }}>
+            <div style={{ fontSize: t.h5, fontWeight: 700 }}>{p?.name || "Plan"}</div>
+            <div style={{ marginTop: 4, fontSize: t.h3, fontWeight: 800, color: theme.accent }}>{p?.price || "$—"}</div>
+            <ul style={{ marginTop: 8, paddingLeft: 16, fontSize: t.h6, color: "#475569" }}>
+              {(p?.items || []).map((feat, idx) => (
+                <li key={idx} style={{ marginTop: 4 }}>{feat}</li>
+              ))}
+            </ul>
+            <button
+              data-action="select-plan"
+              data-plan={p?.name || "Plan"}
+              style={{ marginTop: 10, background: theme.accent, color: "#fff", padding: "8px 12px", borderRadius: 12, border: "none", cursor: "pointer" }}
+            >
+              Choose {p?.name || "Plan"}
+            </button>
+          </div>
+        ))}
+        {tiers.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Enable pricing or add plans in the Maker.</div>}
+      </div>
+    </div>
+  );
+}
+
+function renderFaq(s, theme, t) {
+  const items = Array.isArray(s?.items) ? s.items : [];
+  return (
+    <div style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "FAQ"}</div>
+      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        {items.map((it, i) => (
+          <details key={i} style={{ border: "1px solid #e5e7eb", borderRadius: theme.radius, padding: 12, background: "#fff" }}>
+            <summary style={{ fontSize: t.h6, fontWeight: 700, cursor: "pointer" }}>{it?.q || "Question"}</summary>
+            <div style={{ marginTop: 8, fontSize: t.h6, color: "#475569" }}>{it?.a || ""}</div>
+          </details>
+        ))}
+        {items.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add FAQs in the Maker.</div>}
+      </div>
+    </div>
+  );
+}
+
+function renderContact(s, theme, t) {
+  const email = s?.email || "";
+  const phone = s?.phone || "";
+  const locs = Array.isArray(s?.locations) ? s.locations : [];
+  return (
+    <div id="contact" style={{ ...cardStyle(theme), padding: 16 }}>
+      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Contact"}</div>
+      <div style={{ marginTop: 8, fontSize: t.h6 }}>
+        {email && <>Email: <a href={`mailto:${email}`} style={{ color: theme.accent, textDecoration: "none" }}>{email}</a></>}
+        {phone && <div style={{ marginTop: 4 }}>Phone: {phone}</div>}
+        {locs.length > 0 && <div style={{ marginTop: 4, color: "#64748B" }}>Locations: {locs.join(" · ")}</div>}
+      </div>
+      <form style={{ marginTop: 12, display: "grid", gap: 10 }}>
+        <input placeholder="Name" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
+        <input placeholder="Email" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
+        <textarea rows={4} placeholder="Message" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
+        <button
+          type="button"
+          data-action="open-contact"
+          style={{ background: theme.accent, color: "#fff", padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", width: "fit-content" }}
+        >
+          Send
+        </button>
+      </form>
+    </div>
+  );
+}
