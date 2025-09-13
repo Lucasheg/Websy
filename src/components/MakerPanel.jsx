@@ -1,5 +1,5 @@
 export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure }) {
-  const { brand = {}, theme = {}, layout = {}, content = {} } = maker;
+  const { brand = {}, theme = {}, layout = {}, content = {} } = maker || {};
   const set = (patch) => setMaker((prev) => ({ ...prev, ...patch }));
 
   return (
@@ -30,38 +30,33 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
 
       <div style={grid()}>
         <Card title="Brand">
-          <label className="ts-h6">Name</label>
+          <label>Name</label>
           <input
             style={input()}
             value={brand.name || ""}
             onChange={(e) => set({ brand: { ...brand, name: e.target.value } })}
             placeholder="Your brand"
           />
-          <label className="ts-h6" style={{ marginTop: 8 }}>Tagline</label>
+          <label style={{ marginTop: 8 }}>Tagline</label>
           <input
             style={input()}
             value={brand.tagline || ""}
             onChange={(e) => set({ brand: { ...brand, tagline: e.target.value } })}
             placeholder="Short value proposition"
           />
-          <label className="ts-h6" style={{ marginTop: 8 }}>Logo URL (optional)</label>
+          <label style={{ marginTop: 8 }}>Logo URL (optional)</label>
           <input
             style={input()}
             value={brand.logoUrl || ""}
             onChange={(e) => set({ brand: { ...brand, logoUrl: e.target.value } })}
             placeholder="https://…/logo.svg"
           />
-          <label className="ts-h6" style={{ marginTop: 8 }}>Locations (comma)</label>
+          <label style={{ marginTop: 8 }}>Locations (comma)</label>
           <input
             style={input()}
             value={(brand.locations || []).join(", ")}
             onChange={(e) =>
-              set({
-                brand: {
-                  ...brand,
-                  locations: e.target.value.split(",").map((x) => x.trim()).filter(Boolean),
-                },
-              })
+              set({ brand: { ...brand, locations: e.target.value.split(",").map(x=>x.trim()).filter(Boolean) } })
             }
             placeholder="Oslo, New York, Amsterdam"
           />
@@ -108,9 +103,6 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
             </Field>
           </Row2>
           <Row2>
-            <Field label="Scale (read-only)">
-              <input style={input()} value={1.25} readOnly />
-            </Field>
             <Field label="Container">
               <input
                 style={input()}
@@ -118,49 +110,41 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
                 onChange={(e) => set({ theme: { ...theme, container: Number(e.target.value) || 1200 } })}
               />
             </Field>
+            <Field label="Scale (read-only)">
+              <input style={input()} value={1.25} readOnly />
+            </Field>
           </Row2>
         </Card>
 
         <Card title="Navigation">
-          <label className="ts-h6">Items (comma)</label>
+          <label>Items (comma)</label>
           <input
             style={input()}
             value={(layout.nav || ["Home", "Products", "About", "Contact"]).join(", ")}
             onChange={(e) =>
-              set({
-                layout: {
-                  ...layout,
-                  nav: e.target.value.split(",").map((x) => x.trim()).filter(Boolean),
-                },
-              })
+              set({ layout: { ...layout, nav: e.target.value.split(",").map(x=>x.trim()).filter(Boolean) } })
             }
           />
         </Card>
 
         <Card title="Hero">
-          <label className="ts-h6">Title</label>
+          <label>Title</label>
           <input
             style={input()}
             value={content?.hero?.title || ""}
-            onChange={(e) =>
-              set({ content: { ...content, hero: { ...(content.hero || {}), title: e.target.value } } })
-            }
+            onChange={(e) => set({ content: { ...content, hero: { ...(content.hero || {}), title: e.target.value } } })}
           />
-          <label className="ts-h6" style={{ marginTop: 8 }}>Subtitle</label>
+          <label style={{ marginTop: 8 }}>Subtitle</label>
           <input
             style={input()}
             value={content?.hero?.subtitle || ""}
-            onChange={(e) =>
-              set({ content: { ...content, hero: { ...(content.hero || {}), subtitle: e.target.value } } })
-            }
+            onChange={(e) => set({ content: { ...content, hero: { ...(content.hero || {}), subtitle: e.target.value } } })}
           />
-          <label className="ts-h6" style={{ marginTop: 8 }}>Hero image URL</label>
+          <label style={{ marginTop: 8 }}>Hero image URL</label>
           <input
             style={input()}
             value={content?.hero?.image || ""}
-            onChange={(e) =>
-              set({ content: { ...content, hero: { ...(content.hero || {}), image: e.target.value } } })
-            }
+            onChange={(e) => set({ content: { ...content, hero: { ...(content.hero || {}), image: e.target.value } } })}
             placeholder="https://…/hero.jpg (optional)"
           />
         </Card>
@@ -170,37 +154,13 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
 }
 
 /* UI helpers */
-function card() {
-  return {
-    background: "#fff",
-    border: "1px solid #e8eaef",
-    borderRadius: 16,
-    boxShadow: "0 10px 30px rgba(0,0,0,.04)",
-    padding: 16,
-  };
-}
-function topbar() {
-  return { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 };
-}
-function grid() {
-  return { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 };
-}
-function input() {
-  return { width: "100%", padding: "10px 12px", border: "1px solid #e8eaef", borderRadius: 10, background: "#fff" };
-}
-function btn(kind) {
-  const base = { display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, padding: "8px 14px", cursor: "pointer", border: "1px solid transparent", fontWeight: 600 };
-  if (kind === "solid") return { ...base, background: "#0EA5E9", color: "#fff" };
-  return { ...base, background: "#fff", color: "#0F172A", border: "1px solid #e8eaef" };
-}
-function Card({ title, children }) {
-  return (
-    <div style={{ background: "#fff", border: "1px solid #e8eaef", borderRadius: 14, padding: 12 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "grid", gap: 8 }}>{children}</div>
-    </div>
-  );
-}
-function Row2({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{children}</div>; }
-function Row3({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>{children}</div>; }
-function Field({ label, children }) { return (<div><label className="ts-h6">{label}</label>{children}</div>); }
+function card(){ return { background:"#fff",border:"1px solid #e8eaef",borderRadius:16,boxShadow:"0 10px 30px rgba(0,0,0,.04)",padding:16 }; }
+function topbar(){ return { display:"flex",justifyContent:"space-between",alignItems:"center",gap:12 }; }
+function grid(){ return { display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12,marginTop:12 }; }
+function input(){ return { width:"100%",padding:"10px 12px",border:"1px solid #e8eaef",borderRadius:10,background:"#fff" }; }
+function btn(kind){ const base={display:"inline-flex",alignItems:"center",gap:8,borderRadius:999,padding:"8px 14px",cursor:"pointer",border:"1px solid transparent",fontWeight:600};
+  if(kind==="solid")return{...base,background:"#0EA5E9",color:"#fff"}; return{...base,background:"#fff",color:"#0F172A",border:"1px solid #e8eaef"}; }
+function Card({ title, children }){ return <div style={{background:"#fff",border:"1px solid #e8eaef",borderRadius:14,padding:12}}><div style={{fontWeight:600,marginBottom:8}}>{title}</div><div style={{display:"grid",gap:8}}>{children}</div></div>; }
+function Row2({ children }){ return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{children}</div>; }
+function Row3({ children }){ return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{children}</div>; }
+function Field({ label, children }){ return (<div><label>{label}</label>{children}</div>); }
