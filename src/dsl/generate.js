@@ -1,116 +1,101 @@
-// src/dsl/generate.js
-// Turns the maker config into a neutral, professional example website (no agency sections).
-
-const DEFAULTS = {
-  brand: {
-    name: "ExampleCo",
-    tagline: "We design products people actually use.",
-    colors: { primary: "#0F172A", secondary: "#F6F7F9", accent: "#0EA5E9" },
-    heroImage: null,
-  },
-  nav: ["Home", "Products", "Services", "About", "Contact"],
-};
-
-export default function generateDSL(maker = {}) {
-  const brand = {
-    name: maker?.brand?.name?.trim() || DEFAULTS.brand.name,
-    tagline: maker?.brand?.tagline?.trim() || DEFAULTS.brand.tagline,
-    colors: {
-      primary: maker?.brand?.primary || DEFAULTS.brand.colors.primary,
-      secondary: maker?.brand?.secondary || DEFAULTS.brand.colors.secondary,
-      accent: maker?.brand?.accent || DEFAULTS.brand.colors.accent,
-    },
-    heroImage: maker?.brand?.hero || DEFAULTS.brand.heroImage,
+/** Convert maker config -> renderable DSL the preview understands */
+export default function generateDSL(maker) {
+  const theme = {
+    primary: maker.brand.colors.primary,
+    accent: maker.brand.colors.accent,
+    neutral: maker.brand.colors.neutral,
+    radius: maker.layout.radius,
+    container: maker.layout.container,
+    base: maker.layout.typography.base,
+    scale: maker.layout.typography.scale,
+    card: maker.layout.card,
+    animation: maker.animation.level
   };
 
-  const nav =
-    (maker?.pages?.nav && maker.pages.nav.length
-      ? maker.pages.nav
-      : DEFAULTS.nav);
+  const sections = [];
+  const enabled = maker.pages.enabled || {};
+  const order = maker.pages.sectionsOrder || [];
 
-  // Sections: header → hero → features → services → products → testimonial → faq → contact → footer
-  const sections = [
-    { type: "header", nav },
+  for (const key of order) {
+    if (!enabled[key]) continue;
 
-    {
-      type: "hero",
-      title: brand.name,
-      subtitle: brand.tagline,
-      heroImage: brand.heroImage,
-      primaryCta: { label: "Get started", href: "#contact" },
-      secondaryCta: { label: "Learn more", href: "#about" },
+    if (key === "hero") {
+      sections.push({
+        type: "hero",
+        variant: maker.content.hero.variant,
+        title: maker.brand.name,
+        subtitle: maker.brand.tagline,
+        badge: (maker.content?.contact?.locations || []).join(" · "),
+        primaryCta: { label: maker.content.hero.primaryCta, href: "#contact" },
+        secondaryCta: maker.content.hero.secondaryCta
+          ? { label: maker.content.hero.secondaryCta, href: "#contact" }
+          : null,
+        heroImage: maker.brand.heroImage || ""
+      });
+    }
+
+    if (key === "features") {
+      sections.push({
+        type: "features",
+        title: "What you’ll get",
+        items: (maker.content.features || []).map((f) => ({ title: f.title, text: f.text }))
+      });
+    }
+
+    if (key === "gallery") {
+      sections.push({
+        type: "gallery",
+        title: "Gallery",
+        images: maker.content.gallery || []
+      });
+    }
+
+    if (key === "testimonials") {
+      sections.push({
+        type: "testimonials",
+        title: "Testimonials",
+        quotes: maker.content.testimonials || []
+      });
+    }
+
+    if (key === "pricing") {
+      sections.push({
+        type: "pricing",
+        title: "Pricing",
+        note: "Transparent estimates.",
+        tiers: maker.content.pricing || []
+      });
+    }
+
+    if (key === "faq") {
+      sections.push({
+        type: "faq",
+        title: "FAQ",
+        items: maker.content.faq || []
+      });
+    }
+
+    if (key === "contact") {
+      sections.push({
+        type: "contact",
+        title: "Contact",
+        email: maker.content.contact?.email || "",
+        phone: maker.content.contact?.phone || "",
+        locations: maker.content.contact?.locations || []
+      });
+    }
+  }
+
+  return {
+    meta: {
+      brand: {
+        name: maker.brand.name,
+        tagline: maker.brand.tagline,
+        logoUrl: maker.brand.logoUrl || ""
+      },
+      nav: maker.content.nav || ["Home", "Services", "Pricing", "Contact"],
+      theme
     },
-
-    {
-      type: "features",
-      title: "Why customers choose us",
-      items: [
-        { title: "Clear value", text: "Your user instantly sees what matters." },
-        { title: "Credible proof", text: "Evidence and results over buzzwords." },
-        { title: "Fast & accessible", text: "Performance and usability first." },
-      ],
-    },
-
-    {
-      type: "services",
-      title: "What we offer",
-      items: [
-        { title: "Service A", text: "Explain the core outcome in one line." },
-        { title: "Service B", text: "Tie the service to a business result." },
-        { title: "Service C", text: "Set expectations clearly and simply." },
-      ],
-    },
-
-    {
-      type: "products",
-      title: "Highlighted work",
-      cards: [
-        {
-          title: "Product One",
-          text: "A short sentence about the problem it solves.",
-          img: null,
-          cta: { label: "View details", href: "#product-1" },
-        },
-        {
-          title: "Product Two",
-          text: "A short sentence about the outcome it delivers.",
-          img: null,
-          cta: { label: "View details", href: "#product-2" },
-        },
-        {
-          title: "Product Three",
-          text: "A short sentence about who it is best for.",
-          img: null,
-          cta: { label: "View details", href: "#product-3" },
-        },
-      ],
-    },
-
-    {
-      type: "testimonial",
-      quote: "“They delivered on time and the results were measurable.”",
-      author: "Operations Lead, Northlake",
-    },
-
-    {
-      type: "faq",
-      title: "Frequently asked questions",
-      items: [
-        { q: "What do you specialize in?", a: "Clarity, quality, and outcomes." },
-        { q: "How long does a project take?", a: "Most sites ship in weeks, not months." },
-        { q: "Do you provide copy?", a: "Yes—light guidance or full support on higher tiers." },
-      ],
-    },
-
-    {
-      type: "contact",
-      title: "Let’s talk",
-      email: "contact@citeks.net",
-      locations: ["Oslo", "New York", "Amsterdam"],
-    },
-
-    { type: "footer", nav, company: brand.name },
-  ];
-
-  return { meta: { brand }, pages: [{ slug: "home", sections }] };
+    pages: [{ slug: "home", sections }]
+  };
 }
