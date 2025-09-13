@@ -1,38 +1,20 @@
 export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure }) {
   const { brand = {}, theme = {}, layout = {}, content = {} } = maker;
-
   const set = (patch) => setMaker((prev) => ({ ...prev, ...patch }));
 
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e8eaef",
-        borderRadius: 16,
-        boxShadow: "0 10px 30px rgba(0,0,0,.04)",
-        padding: 16,
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+    <div style={card()}>
+      <div style={topbar()}>
         <div style={{ fontWeight: 700, fontSize: 18 }}>Website Maker</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={resetMaker}
-            style={btn("ghost")}
-            title="Reset to neutral baseline"
-          >
-            Reset
-          </button>
+          <button onClick={resetMaker} style={btn("ghost")}>Reset</button>
         </div>
       </div>
 
-      {/* Quick “guide me” line */}
-      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 8 }}>
         <input
-          placeholder='Guide me (e.g., "Named Alder & Co, software product")'
-          onKeyDown={(e) => {
-            if (e.key === "Enter") autoconfigure(e.currentTarget.value);
-          }}
+          placeholder='Guide me (e.g., "Alder & Co, software")'
+          onKeyDown={(e) => { if (e.key === "Enter") autoconfigure(e.currentTarget.value); }}
           style={input()}
         />
         <button
@@ -46,9 +28,7 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
         </button>
       </div>
 
-      {/* Grid: Brand / Theme / Navigation / Content */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 }}>
-        {/* Brand */}
+      <div style={grid()}>
         <Card title="Brand">
           <label className="ts-h6">Name</label>
           <input
@@ -79,10 +59,7 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
               set({
                 brand: {
                   ...brand,
-                  locations: e.target.value
-                    .split(",")
-                    .map((x) => x.trim())
-                    .filter(Boolean),
+                  locations: e.target.value.split(",").map((x) => x.trim()).filter(Boolean),
                 },
               })
             }
@@ -90,74 +67,60 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
           />
         </Card>
 
-        {/* Theme */}
         <Card title="Theme">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-            <div>
-              <label className="ts-h6">Primary</label>
+          <Row3>
+            <Field label="Primary">
               <input
                 style={input()}
                 value={theme.primary || "#0F172A"}
                 onChange={(e) => set({ theme: { ...theme, primary: e.target.value } })}
               />
-            </div>
-            <div>
-              <label className="ts-h6">Accent</label>
+            </Field>
+            <Field label="Accent">
               <input
                 style={input()}
                 value={theme.accent || "#0EA5E9"}
                 onChange={(e) => set({ theme: { ...theme, accent: e.target.value } })}
               />
-            </div>
-            <div>
-              <label className="ts-h6">Neutral</label>
+            </Field>
+            <Field label="Neutral">
               <input
                 style={input()}
                 value={theme.neutral || "#F6F7F9"}
                 onChange={(e) => set({ theme: { ...theme, neutral: e.target.value } })}
               />
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-            <div>
-              <label className="ts-h6">Radius</label>
+            </Field>
+          </Row3>
+          <Row2>
+            <Field label="Radius">
               <input
                 style={input()}
                 value={theme.radius ?? 16}
                 onChange={(e) => set({ theme: { ...theme, radius: Number(e.target.value) || 0 } })}
               />
-            </div>
-            <div>
-              <label className="ts-h6">Base size</label>
+            </Field>
+            <Field label="Base size">
               <input
                 style={input()}
                 value={theme.base ?? 16}
                 onChange={(e) => set({ theme: { ...theme, base: Number(e.target.value) || 16 } })}
               />
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-            <div>
-              <label className="ts-h6">Scale</label>
-              <input
-                style={input()}
-                value={theme.scale ?? 1.25}
-                onChange={(e) => set({ theme: { ...theme, scale: Number(e.target.value) || 1.25 } })}
-              />
-            </div>
-            <div>
-              <label className="ts-h6">Container</label>
+            </Field>
+          </Row2>
+          <Row2>
+            <Field label="Scale (read-only)">
+              <input style={input()} value={1.25} readOnly />
+            </Field>
+            <Field label="Container">
               <input
                 style={input()}
                 value={theme.container ?? 1200}
                 onChange={(e) => set({ theme: { ...theme, container: Number(e.target.value) || 1200 } })}
               />
-            </div>
-          </div>
+            </Field>
+          </Row2>
         </Card>
 
-        {/* Navigation */}
         <Card title="Navigation">
           <label className="ts-h6">Items (comma)</label>
           <input
@@ -167,29 +130,20 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
               set({
                 layout: {
                   ...layout,
-                  nav: e.target.value
-                    .split(",")
-                    .map((x) => x.trim())
-                    .filter(Boolean),
+                  nav: e.target.value.split(",").map((x) => x.trim()).filter(Boolean),
                 },
               })
             }
           />
         </Card>
 
-        {/* Hero */}
         <Card title="Hero">
           <label className="ts-h6">Title</label>
           <input
             style={input()}
             value={content?.hero?.title || ""}
             onChange={(e) =>
-              set({
-                content: {
-                  ...content,
-                  hero: { ...(content.hero || {}), title: e.target.value },
-                },
-              })
+              set({ content: { ...content, hero: { ...(content.hero || {}), title: e.target.value } } })
             }
           />
           <label className="ts-h6" style={{ marginTop: 8 }}>Subtitle</label>
@@ -197,12 +151,7 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
             style={input()}
             value={content?.hero?.subtitle || ""}
             onChange={(e) =>
-              set({
-                content: {
-                  ...content,
-                  hero: { ...(content.hero || {}), subtitle: e.target.value },
-                },
-              })
+              set({ content: { ...content, hero: { ...(content.hero || {}), subtitle: e.target.value } } })
             }
           />
           <label className="ts-h6" style={{ marginTop: 8 }}>Hero image URL</label>
@@ -210,12 +159,7 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
             style={input()}
             value={content?.hero?.image || ""}
             onChange={(e) =>
-              set({
-                content: {
-                  ...content,
-                  hero: { ...(content.hero || {}), image: e.target.value },
-                },
-              })
+              set({ content: { ...content, hero: { ...(content.hero || {}), image: e.target.value } } })
             }
             placeholder="https://…/hero.jpg (optional)"
           />
@@ -225,47 +169,38 @@ export default function MakerPanel({ maker, setMaker, resetMaker, autoconfigure 
   );
 }
 
-/* ————— helpers ————— */
-
+/* UI helpers */
+function card() {
+  return {
+    background: "#fff",
+    border: "1px solid #e8eaef",
+    borderRadius: 16,
+    boxShadow: "0 10px 30px rgba(0,0,0,.04)",
+    padding: 16,
+  };
+}
+function topbar() {
+  return { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 };
+}
+function grid() {
+  return { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 12, marginTop: 12 };
+}
+function input() {
+  return { width: "100%", padding: "10px 12px", border: "1px solid #e8eaef", borderRadius: 10, background: "#fff" };
+}
+function btn(kind) {
+  const base = { display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, padding: "8px 14px", cursor: "pointer", border: "1px solid transparent", fontWeight: 600 };
+  if (kind === "solid") return { ...base, background: "#0EA5E9", color: "#fff" };
+  return { ...base, background: "#fff", color: "#0F172A", border: "1px solid #e8eaef" };
+}
 function Card({ title, children }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e8eaef",
-        borderRadius: 14,
-        padding: 12,
-      }}
-    >
+    <div style={{ background: "#fff", border: "1px solid #e8eaef", borderRadius: 14, padding: 12 }}>
       <div style={{ fontWeight: 600, marginBottom: 8 }}>{title}</div>
       <div style={{ display: "grid", gap: 8 }}>{children}</div>
     </div>
   );
 }
-
-function input() {
-  return {
-    width: "100%",
-    padding: "10px 12px",
-    border: "1px solid #e8eaef",
-    borderRadius: 10,
-    background: "#fff",
-  };
-}
-
-function btn(kind) {
-  const base = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 999,
-    padding: "8px 14px",
-    cursor: "pointer",
-    border: "1px solid transparent",
-    fontWeight: 600,
-  };
-  if (kind === "solid") {
-    return { ...base, background: "#0EA5E9", color: "#fff" };
-  }
-  return { ...base, background: "#fff", color: "#0F172A", border: "1px solid #e8eaef" };
-}
+function Row2({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{children}</div>; }
+function Row3({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>{children}</div>; }
+function Field({ label, children }) { return (<div><label className="ts-h6">{label}</label>{children}</div>); }
