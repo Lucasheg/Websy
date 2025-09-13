@@ -15,9 +15,7 @@ const DEFAULT = {
     base: 16,
     container: 1200,
   },
-  layout: {
-    nav: ["Home", "Products", "About", "Contact"],
-  },
+  layout: { nav: ["Home", "Products", "About", "Contact"] },
   content: {
     hero: {
       title: "Clarity that converts.",
@@ -47,25 +45,16 @@ export default function useMakerState() {
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem("maker", JSON.stringify(maker));
-    } catch {}
+    try { localStorage.setItem("maker", JSON.stringify(maker)); } catch {}
   }, [maker]);
 
   const resetMaker = useCallback(() => setMaker(DEFAULT), []);
 
-  const autoconfigure = useCallback((text) => {
-    // super light “guide me”: brand name + optional hints
-    const t = (text || "").trim();
+  const autoconfigure = useCallback((text = "") => {
+    const t = text.trim();
     let name = (t.match(/^(.*?)(,|$)/)?.[1] || "").trim();
     if (!name) name = "Brand";
-
-    setMaker((prev) => {
-      const next = { ...prev };
-      next.brand = { ...(prev.brand || {}), name };
-      // Keep everything else as-is; we stay neutral
-      return next;
-    });
+    setMaker((prev) => ({ ...prev, brand: { ...(prev.brand || {}), name } }));
   }, []);
 
   return { maker, setMaker, resetMaker, autoconfigure };
