@@ -4,16 +4,12 @@ export default function PreviewShell({ dsl }) {
   if (!dsl || !dsl.meta || !Array.isArray(dsl.pages)) {
     return <div style={card()}>Loading…</div>;
   }
-
   const { brand = {}, theme = {}, nav = [] } = dsl.meta;
   const page = dsl.pages[0] || { sections: [] };
 
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("vis")),
-      { threshold: 0.25 }
-    );
-    document.querySelectorAll(".rv").forEach((el) => obs.observe(el));
+    const obs = new IntersectionObserver((entries)=> entries.forEach(e=> e.isIntersecting && e.target.classList.add("vis")), { threshold: 0.25 });
+    document.querySelectorAll(".rv").forEach(el => obs.observe(el));
     return () => obs.disconnect();
   }, [dsl]);
 
@@ -25,15 +21,13 @@ export default function PreviewShell({ dsl }) {
         <div className="shell">
           <div className="logo">{brand.logoUrl ? <img src={brand.logoUrl} alt={brand.name || "Brand"} /> : <span>{brand.name || "Brand"}</span>}</div>
           <nav className="nav">
-            {(nav || []).map((it) => (
-              <a key={it} href={`#${it.toLowerCase().replace(/\s+/g, "")}`}>{it}</a>
-            ))}
+            {(nav || []).map((it) => <a key={it} href={`#${it.toLowerCase().replace(/\s+/g,"")}`}>{it}</a>)}
             <a data-action="open-contact" href="#contact" className="btn">Contact</a>
           </nav>
         </div>
       </header>
 
-      {Array.isArray(page.sections) && page.sections.map((s, i) => <Section key={i} s={s} />)}
+      {(page.sections || []).map((s,i)=> <Section key={i} s={s} />)}
 
       <footer className="ft">
         <div className="shell">
@@ -191,14 +185,8 @@ function Style({ theme = {} }) {
   return (
     <style>{`
       :root{
-        --ink:${primary};
-        --accent:${accent};
-        --bg:${neutral};
-        --hair:#e8eaef;
-        --muted:#64748b;
-        --r:${radius}px;
-        --base:${base}px;
-        --w:${container}px;
+        --ink:${primary}; --accent:${accent}; --bg:${neutral};
+        --hair:#e8eaef; --muted:#64748b; --r:${radius}px; --base:${base}px; --w:${container}px;
       }
       .shell{max-width:var(--w); margin:0 auto; padding:0 16px;}
       .p{font-size:var(--base); line-height:1.55}
@@ -222,7 +210,7 @@ function Style({ theme = {} }) {
       .nav{display:flex; align-items:center; gap:18px}
       .nav a{color:var(--ink); text-decoration:none}
       .hero{position:relative; overflow:hidden; border-bottom:1px solid var(--hair)}
-      .hero-bg{position:absolute; inset:0; background:linear-gradient(135deg,#fdfdfd,#f2f5f8)}
+      .hero-bg{position:absolute; inset:0; background:linear-gradient(135deg,#fdfdfd,#f2f5f8); background-size:cover; background-position:center}
       .hero .shell{position:relative; padding:72px 16px}
       .hero .lead{color:#1f2937; max-width:720px; margin-top:6px}
       .badge{display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.6); border:1px solid var(--hair); margin-bottom:8px}
@@ -249,6 +237,4 @@ function Style({ theme = {} }) {
   );
 }
 
-function card() {
-  return { background: "#fff", border: "1px solid #e8eaef", borderRadius: 16, padding: 16 };
-}
+function card(){ return { background:"#fff", border:"1px solid #e8eaef", borderRadius:16, padding:16 }; }
