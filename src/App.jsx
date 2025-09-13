@@ -65,7 +65,12 @@ export default function App() {
     background: "#f6f7f9",
   }}
 >
-  <MakerPanel dsl={dsl} setDsl={setDsl} />
+  <MakerPanel
+  maker={maker}
+  setMaker={setMaker}
+  resetMaker={resetMaker}
+  autoconfigure={autoconfigure}
+/>
 </section>
 
 // AFTER (static, lets you scroll down to the preview)
