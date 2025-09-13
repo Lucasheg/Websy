@@ -1,44 +1,58 @@
-import { useState } from "react";
+// src/state/useMakerState.js
+import { useState, useCallback } from "react";
 
-/** Neutral starter config (no agency wording) */
-const INITIAL_MAKER = {
+const INITIAL = {
   brand: {
-    name: "Example Co.",
-    tagline: "A clear, simple headline that explains your value.",
-    colors: { primary: "#0F172A", secondary: "#F6F7F9", accent: "#2563EB" },
-    heroImage: null,
+    name: "ExampleCo",
+    tagline: "We design products people actually use.",
+    primary: "#0F172A",
+    secondary: "#F6F7F9",
+    accent: "#0EA5E9",
+    hero: "",
   },
-  layout: { container: 1200, radius: 16, density: "cozy" },
-  pages: { home: true, about: true, services: true, pricing: true, contact: true },
-  blocks: {
-    features: ["Feature one", "Feature two", "Feature three"],
-    testimonials: [{ quote: "Short proof point goes here.", author: "Happy customer" }],
-    metrics: [{ label: "Years in business", value: "10+" }],
+  // Keep this object present so UI & DSL can rely on it
+  pages: {
+    nav: ["Home", "Products", "Services", "About", "Contact"],
   },
+  layout: {
+    container: 1040,
+  },
+  blocks: {},
 };
 
 export default function useMakerState() {
-  const [maker, setMaker] = useState(INITIAL_MAKER);
+  const [maker, setMaker] = useState(INITIAL);
 
-  const resetMaker = () => setMaker(INITIAL_MAKER);
+  const resetMaker = useCallback(() => setMaker(INITIAL), []);
 
-  /** Safe neutral autoconfigure: fills only what’s provided, stays generic otherwise */
-  const autoconfigure = (brief) => {
-    setMaker((prev) => ({
-      ...INITIAL_MAKER,
-      brand: {
-        ...INITIAL_MAKER.brand,
-        name: brief?.company?.name || INITIAL_MAKER.brand.name,
-        tagline: brief?.company?.tagline || INITIAL_MAKER.brand.tagline,
-        colors:
-          brief?.company?.brand?.colors ||
-          brief?.company?.brand ||
-          INITIAL_MAKER.brand.colors,
-        heroImage: brief?.company?.brand?.heroImage || null,
-      },
-      // keep generic pages/blocks unless explicitly provided later
-    }));
-  };
+  // Example “AI/autoconfigure” stub — safe & deterministic for now
+  const autoconfigure = useCallback((hint = {}) => {
+    setMaker((prev) => {
+      const brandName = hint.name || prev.brand?.name || "ExampleCo";
+      const industry = (hint.industry || "").toLowerCase();
+      const nav =
+        industry === "saas"
+          ? ["Home", "Product", "Pricing", "Docs", "Contact"]
+          : industry === "law"
+          ? ["Home", "Services", "Industries", "Insights", "Contact"]
+          : ["Home", "Products", "Services", "About", "Contact"];
+
+      return {
+        ...prev,
+        brand: {
+          ...prev.brand,
+          name: brandName,
+          tagline:
+            hint.tagline || prev.brand?.tagline || "Built for clarity and outcomes.",
+          primary: prev.brand?.primary || "#0F172A",
+          secondary: prev.brand?.secondary || "#F6F7F9",
+          accent: prev.brand?.accent || "#0EA5E9",
+          hero: prev.brand?.hero || "",
+        },
+        pages: { ...(prev.pages || {}), nav },
+      };
+    });
+  }, []);
 
   return { maker, setMaker, resetMaker, autoconfigure };
 }
