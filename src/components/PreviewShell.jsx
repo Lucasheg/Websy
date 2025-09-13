@@ -1,25 +1,12 @@
 import React, { useEffect } from "react";
 
-/**
- * Renders a neutral, professional site from DSL:
- * Header → Hero → Features → Gallery → Testimonials → FAQ → Contact → Footer
- * - Smaller type scale, fine rules, lots of breathing room
- * - Subtle reveal on scroll (IntersectionObserver)
- */
-
 export default function PreviewShell({ dsl }) {
-  if (!dsl || !dsl.meta || !dsl.pages?.length) {
-    return (
-      <div style={card()}>
-        <div style={{ fontWeight: 600 }}>A section failed to render</div>
-        <div style={{ color: "#64748b", marginTop: 6 }}>
-          DSL is missing. Try Reset in the Maker panel.
-        </div>
-      </div>
-    );
+  if (!dsl || !dsl.meta || !Array.isArray(dsl.pages)) {
+    return <div style={card()}>Loading…</div>;
   }
 
-  const { brand, theme, nav } = dsl.meta;
+  const { brand = {}, theme = {}, nav = [] } = dsl.meta;
+  const page = dsl.pages[0] || { sections: [] };
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -36,35 +23,23 @@ export default function PreviewShell({ dsl }) {
 
       <header className="hd">
         <div className="shell">
-          <div className="logo">
-            {brand.logoUrl ? (
-              <img src={brand.logoUrl} alt={brand.name} />
-            ) : (
-              <span>{brand.name}</span>
-            )}
-          </div>
+          <div className="logo">{brand.logoUrl ? <img src={brand.logoUrl} alt={brand.name || "Brand"} /> : <span>{brand.name || "Brand"}</span>}</div>
           <nav className="nav">
             {(nav || []).map((it) => (
-              <a key={it} href={`#${it.toLowerCase().replace(/\s+/g, "")}`}>
-                {it}
-              </a>
+              <a key={it} href={`#${it.toLowerCase().replace(/\s+/g, "")}`}>{it}</a>
             ))}
-            <a data-action="open-contact" href="#contact" className="btn">
-              Contact
-            </a>
+            <a data-action="open-contact" href="#contact" className="btn">Contact</a>
           </nav>
         </div>
       </header>
 
-      {dsl.pages[0].sections.map((s, i) => (
-        <Section key={i} s={s} theme={theme} />
-      ))}
+      {Array.isArray(page.sections) && page.sections.map((s, i) => <Section key={i} s={s} />)}
 
       <footer className="ft">
         <div className="shell">
           <div className="ft-grid">
             <div>
-              <div className="brand">{brand.name}</div>
+              <div className="brand">{brand.name || "Brand"}</div>
               <div className="muted">© {new Date().getFullYear()} — All rights reserved</div>
             </div>
             <div className="muted" style={{ textAlign: "right" }}>
@@ -77,9 +52,7 @@ export default function PreviewShell({ dsl }) {
   );
 }
 
-/* ————— Sections ————— */
-
-function Section({ s, theme }) {
+function Section({ s }) {
   if (!s) return null;
 
   if (s.type === "hero") {
@@ -92,16 +65,8 @@ function Section({ s, theme }) {
           <h1 className="h1">{s.title || "Headline"}</h1>
           {s.subtitle ? <p className="lead">{s.subtitle}</p> : null}
           <div className="cta-row">
-            {s.primaryCta && (
-              <a href={s.primaryCta.href || "#"} className="btn">
-                {s.primaryCta.label || "Learn more"}
-              </a>
-            )}
-            {s.secondaryCta && (
-              <a href={s.secondaryCta.href || "#"} className="btn ghost">
-                {s.secondaryCta.label}
-              </a>
-            )}
+            {s.primaryCta && <a href={s.primaryCta.href || "#"} className="btn">{s.primaryCta.label || "Learn more"}</a>}
+            {s.secondaryCta && <a href={s.secondaryCta.href || "#"} className="btn ghost">{s.secondaryCta.label}</a>}
           </div>
         </div>
       </section>
@@ -109,14 +74,15 @@ function Section({ s, theme }) {
   }
 
   if (s.type === "features") {
+    const items = Array.isArray(s.items) ? s.items : [];
     return (
       <section className="sec rv" id="products">
         <div className="shell">
           <h2 className="h2">{s.title || "What you’ll get"}</h2>
           <div className="grid">
-            {(s.items || []).map((it, i) => (
+            {items.map((it, i) => (
               <div className="card" key={i}>
-                <div className="h5">{it.title}</div>
+                <div className="h5">{it.title || "Feature"}</div>
                 {it.text ? <p className="p muted">{it.text}</p> : null}
               </div>
             ))}
@@ -126,13 +92,15 @@ function Section({ s, theme }) {
     );
   }
 
-  if (s.type === "gallery" && (s.images || []).length) {
+  if (s.type === "gallery") {
+    const imgs = Array.isArray(s.images) ? s.images : [];
+    if (!imgs.length) return null;
     return (
       <section className="sec rv">
         <div className="shell">
           <h2 className="h2">{s.title || "Show, don’t tell"}</h2>
           <div className="gallery">
-            {s.images.map((src, i) => (
+            {imgs.map((src, i) => (
               <figure key={i} className="ph">
                 <img src={src} alt={`Gallery ${i + 1}`} loading="lazy" />
               </figure>
@@ -144,14 +112,16 @@ function Section({ s, theme }) {
   }
 
   if (s.type === "testimonials") {
+    const quotes = Array.isArray(s.quotes) ? s.quotes : [];
+    if (!quotes.length) return null;
     return (
       <section className="sec rv">
         <div className="shell">
           <h2 className="h2">{s.title || "What clients say"}</h2>
           <div className="grid">
-            {(s.quotes || []).map((q, i) => (
+            {quotes.map((q, i) => (
               <blockquote className="card quote" key={i}>
-                <p>“{q.quote}”</p>
+                <p>“{q.quote || ""}”</p>
                 <cite className="muted">{q.author || ""}</cite>
               </blockquote>
             ))}
@@ -162,15 +132,17 @@ function Section({ s, theme }) {
   }
 
   if (s.type === "faq") {
+    const items = Array.isArray(s.items) ? s.items : [];
+    if (!items.length) return null;
     return (
       <section className="sec rv" id="about">
         <div className="shell">
           <h2 className="h2">{s.title || "FAQ"}</h2>
           <div className="faq">
-            {(s.items || []).map((f, i) => (
+            {items.map((f, i) => (
               <details key={i} className="faq-item">
-                <summary>{f.q}</summary>
-                <div className="p muted">{f.a}</div>
+                <summary>{f.q || "Question"}</summary>
+                <div className="p muted">{f.a || ""}</div>
               </details>
             ))}
           </div>
@@ -180,28 +152,24 @@ function Section({ s, theme }) {
   }
 
   if (s.type === "contact") {
+    const email = s.email || "contact@example.com";
+    const locations = Array.isArray(s.locations) ? s.locations : [];
     return (
       <section className="sec rv" id="contact">
         <div className="shell">
           <h2 className="h2">{s.title || "Contact"}</h2>
           <div className="contact">
             <div className="card">
-              <div className="p"><b>Email:</b> {s.email || "contact@example.com"}</div>
+              <div className="p"><b>Email:</b> {email}</div>
               {s.phone ? <div className="p"><b>Phone:</b> {s.phone}</div> : null}
-              {(s.locations || []).length ? (
-                <div className="p muted">Locations: {s.locations.join(" · ")}</div>
-              ) : null}
-              <a href={`mailto:${s.email || "contact@example.com"}`} className="btn" data-action="open-contact">
-                Send email
-              </a>
+              {locations.length ? <div className="p muted">Locations: {locations.join(" · ")}</div> : null}
+              <a href={`mailto:${email}`} className="btn" data-action="open-contact">Send email</a>
             </div>
             <form className="card">
               <input className="in" placeholder="Name" />
               <input className="in" placeholder="Email" />
               <textarea className="in" rows={5} placeholder="Message" />
-              <button className="btn" type="button" data-action="open-contact">
-                Send
-              </button>
+              <button className="btn" type="button" data-action="open-contact">Send</button>
             </form>
           </div>
         </div>
@@ -211,8 +179,6 @@ function Section({ s, theme }) {
 
   return null;
 }
-
-/* ————— Style ————— */
 
 function Style({ theme = {} }) {
   const primary = theme.primary || "#0F172A";
@@ -237,8 +203,8 @@ function Style({ theme = {} }) {
       .shell{max-width:var(--w); margin:0 auto; padding:0 16px;}
       .p{font-size:var(--base); line-height:1.55}
       .muted{color:var(--muted)}
-      .h1{font-size:calc(var(--base) * 2.5); letter-spacing:-0.02em; line-height:1.05; font-weight:700}
-      .h2{font-size:calc(var(--base) * 1.75); letter-spacing:-0.015em; line-height:1.15; font-weight:700}
+      .h1{font-size:calc(var(--base) * 2.4); letter-spacing:-0.02em; line-height:1.05; font-weight:700}
+      .h2{font-size:calc(var(--base) * 1.7); letter-spacing:-0.015em; line-height:1.15; font-weight:700}
       .h5{font-size:calc(var(--base) * 1.125); font-weight:600}
       .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 16px;
            background:var(--accent); color:#fff; border-radius:999px; text-decoration:none; border:1px solid transparent}
@@ -250,7 +216,7 @@ function Style({ theme = {} }) {
       .rv.vis{opacity:1; transform:translateY(0)}
       .hd{position:sticky; top:0; z-index:10; background:rgba(255,255,255,.82); backdrop-filter:saturate(1.2) blur(6px);
           border-bottom:1px solid var(--hair)}
-      .hd .shell{display:flex; align-items:center; justify-content:space-between; height:58px}
+      .hd .shell{display:flex; align-items:center; justify-content:space-between; height:56px}
       .logo img{height:22px}
       .logo span{font-weight:700; letter-spacing:.02em}
       .nav{display:flex; align-items:center; gap:18px}
@@ -275,20 +241,14 @@ function Style({ theme = {} }) {
       .ft-grid{display:grid; gap:12px; grid-template-columns:1fr 1fr; align-items:center}
       .brand{font-weight:700}
       @media (max-width: 720px){
-        .h1{font-size:calc(var(--base) * 2.1)}
-        .h2{font-size:calc(var(--base) * 1.5)}
+        .h1{font-size:calc(var(--base) * 2.0)}
+        .h2{font-size:calc(var(--base) * 1.45)}
         .hero .shell{padding:56px 16px}
       }
     `}</style>
   );
 }
 
-/* ————— small style helper ————— */
 function card() {
-  return {
-    background: "#fff",
-    border: "1px solid #e8eaef",
-    borderRadius: 16,
-    padding: 16,
-  };
+  return { background: "#fff", border: "1px solid #e8eaef", borderRadius: 16, padding: 16 };
 }
