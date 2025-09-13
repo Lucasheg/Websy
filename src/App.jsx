@@ -7,15 +7,12 @@ import useMakerState from "./state/useMakerState.js";
 import generateDSL from "./dsl/generate.js";
 
 export default function App() {
-  // Maker config (single source of truth)
   const { maker, setMaker, resetMaker, autoconfigure } = useMakerState();
 
-  // Modal for actions (book call, etc.)
   const [modal, setModal] = useState(null);
   const openModal = useCallback((cfg) => setModal(cfg), []);
   const closeModal = useCallback(() => setModal(null), []);
 
-  // Helpers for actions; keeps App decoupled
   const helpers = {
     openModal,
     closeModal,
@@ -29,7 +26,6 @@ export default function App() {
     toast: (msg) => alert(msg),
   };
 
-  // One click delegate for the whole preview
   const onPreviewClick = useCallback(
     async (e) => {
       const target = e.target.closest("[data-action]");
@@ -50,12 +46,11 @@ export default function App() {
     [helpers]
   );
 
-  // DSL generated from maker config
   const dsl = useMemo(() => generateDSL(maker), [maker]);
 
   return (
     <div style={{ background: "#f6f7f9", minHeight: "100vh" }}>
-      {/* MAKER (full width, contained; static so page scrolls normally) */}
+      {/* Maker — full width card at top */}
       <section
         style={{
           maxWidth: 1240,
@@ -72,13 +67,9 @@ export default function App() {
         />
       </section>
 
-      {/* PREVIEW (directly under the maker) */}
+      {/* Preview */}
       <section
-        style={{
-          maxWidth: 1240,
-          margin: "0 auto",
-          padding: "0 16px 32px 16px",
-        }}
+        style={{ maxWidth: 1240, margin: "0 auto", padding: "0 16px 32px" }}
         onClick={onPreviewClick}
       >
         <PreviewShell dsl={dsl} />
