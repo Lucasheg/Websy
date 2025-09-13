@@ -1,342 +1,294 @@
-// src/components/PreviewShell.jsx
-import React, { useMemo } from "react";
+import React, { useEffect } from "react";
 
-/** Normalize theme whether it's {primary,...} or {colors:{primary,...}} */
-function normalizeTheme(raw = {}) {
-  const primary =
-    raw.primary ?? raw.colors?.primary ?? "#0F172A";
-  const accent =
-    raw.accent ?? raw.colors?.accent ?? "#0EA5E9";
-  const neutral =
-    raw.neutral ?? raw.colors?.neutral ?? "#F6F7F9";
-  const radius = raw.radius ?? 16;
-  const container = raw.container ?? 1200;
-  const base = raw.base ?? 16;
-  const scale = raw.scale ?? 1.25;
-  const card = raw.card ?? "soft"; // soft|outline|minimal
-  const animation = raw.animation ?? "medium"; // low|medium|high
-  return { primary, accent, neutral, radius, container, base, scale, card, animation };
-}
-
-function type(theme) {
-  const h6 = Math.round(theme.base * theme.scale ** 1);
-  const h5 = Math.round(theme.base * theme.scale ** 2);
-  const h4 = Math.round(theme.base * theme.scale ** 3);
-  const h3 = Math.round(theme.base * theme.scale ** 4);
-  const h2 = Math.round(theme.base * theme.scale ** 5);
-  const h1 = Math.round(theme.base * theme.scale ** 6);
-  return { p: theme.base, h6, h5, h4, h3, h2, h1 };
-}
-
-function cardStyle(theme) {
-  if (theme.card === "outline") {
-    return { border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" };
-  }
-  if (theme.card === "minimal") {
-    return { borderRadius: theme.radius, background: "#fff" };
-  }
-  // soft
-  return { border: "1px solid #eef0f2", borderRadius: theme.radius, background: "#fff", boxShadow: "0 10px 30px rgba(0,0,0,.05)" };
-}
-
-function anim(theme) {
-  const dur = theme.animation === "high" ? "700ms" : theme.animation === "low" ? "200ms" : "450ms";
-  return { transition: `opacity ${dur} ease, transform ${dur} ease` };
-}
+/**
+ * Renders a neutral, professional site from DSL:
+ * Header → Hero → Features → Gallery → Testimonials → FAQ → Contact → Footer
+ * - Smaller type scale, fine rules, lots of breathing room
+ * - Subtle reveal on scroll (IntersectionObserver)
+ */
 
 export default function PreviewShell({ dsl }) {
-  const theme = useMemo(() => normalizeTheme(dsl?.meta?.theme), [dsl]);
-  const t = useMemo(() => type(theme), [theme]);
-  const brand = dsl?.meta?.brand || {};
-  const nav = dsl?.meta?.nav || ["Home", "Services", "Pricing", "Contact"];
-  const sections = (dsl?.pages?.[0]?.sections) || [];
+  if (!dsl || !dsl.meta || !dsl.pages?.length) {
+    return (
+      <div style={card()}>
+        <div style={{ fontWeight: 600 }}>A section failed to render</div>
+        <div style={{ color: "#64748b", marginTop: 6 }}>
+          DSL is missing. Try Reset in the Maker panel.
+        </div>
+      </div>
+    );
+  }
+
+  const { brand, theme, nav } = dsl.meta;
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add("vis")),
+      { threshold: 0.25 }
+    );
+    document.querySelectorAll(".rv").forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, [dsl]);
 
   return (
-    <div style={{ background: theme.neutral, color: theme.primary, fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial' }}>
-      {/* Header */}
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 5,
-          backdropFilter: "saturate(1.05) blur(6px)",
-          background: "rgba(255,255,255,.7)",
-          borderBottom: "1px solid #e5e7eb"
-        }}
-      >
-        <div style={{ maxWidth: theme.container, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div>
+      <Style theme={theme} />
+
+      <header className="hd">
+        <div className="shell">
+          <div className="logo">
             {brand.logoUrl ? (
-              <img src={brand.logoUrl} alt={brand.name || "Logo"} style={{ height: 28 }} />
+              <img src={brand.logoUrl} alt={brand.name} />
             ) : (
-              <div style={{ fontWeight: 700, fontSize: t.h6 }}>{brand.name || "Your brand"}</div>
+              <span>{brand.name}</span>
             )}
           </div>
-          <nav style={{ display: "flex", gap: 16, fontSize: t.h6, alignItems: "center" }}>
-            {nav.map((item) => (
-              <a key={item} href={`#${item.toLowerCase()}`} style={{ color: theme.primary, textDecoration: "none", opacity: .9 }}>
-                {item}
+          <nav className="nav">
+            {(nav || []).map((it) => (
+              <a key={it} href={`#${it.toLowerCase().replace(/\s+/g, "")}`}>
+                {it}
               </a>
             ))}
-            <a
-              href="#contact"
-              data-action="book-call"
-              style={{ background: theme.accent, color: "#fff", padding: "8px 14px", borderRadius: 999, textDecoration: "none" }}
-            >
-              Get started
+            <a data-action="open-contact" href="#contact" className="btn">
+              Contact
             </a>
           </nav>
         </div>
       </header>
 
-      {/* Sections */}
-      <main style={{ maxWidth: theme.container, margin: "0 auto", padding: "16px" }}>
-        {sections.map((s, i) => (
-          <section key={i} style={{ margin: "16px 0" }}>
-            {renderSection(s, theme, t)}
-          </section>
-        ))}
-      </main>
+      {dsl.pages[0].sections.map((s, i) => (
+        <Section key={i} s={s} theme={theme} />
+      ))}
 
-      {/* Footer */}
-      <footer style={{ borderTop: "1px solid #e5e7eb", marginTop: 24, background: "#fff" }}>
-        <div style={{ maxWidth: theme.container, margin: "0 auto", padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: t.h6 }}>
-          <div>© {new Date().getFullYear()} {brand.name || "Your brand"}</div>
-          <div style={{ opacity: .7 }}>{brand.tagline || "We make it simple to choose you."}</div>
+      <footer className="ft">
+        <div className="shell">
+          <div className="ft-grid">
+            <div>
+              <div className="brand">{brand.name}</div>
+              <div className="muted">© {new Date().getFullYear()} — All rights reserved</div>
+            </div>
+            <div className="muted" style={{ textAlign: "right" }}>
+              <a href="#top">Back to top</a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
   );
 }
 
-/* ---------- section renderers ---------- */
+/* ————— Sections ————— */
 
-function renderSection(s, theme, t) {
-  try {
-    switch (s?.type) {
-      case "hero":
-        return renderHero(s, theme, t);
-      case "features":
-        return renderFeatures(s, theme, t);
-      case "gallery":
-        return renderGallery(s, theme, t);
-      case "testimonials":
-        return renderTestimonials(s, theme, t);
-      case "pricing":
-        return renderPricing(s, theme, t);
-      case "faq":
-        return renderFaq(s, theme, t);
-      case "contact":
-        return renderContact(s, theme, t);
-      default:
-        return null;
-    }
-  } catch (err) {
+function Section({ s, theme }) {
+  if (!s) return null;
+
+  if (s.type === "hero") {
     return (
-      <div style={{ padding: 16, ...cardStyle(theme) }}>
-        <div style={{ fontSize: t.h5, fontWeight: 700, color: "#DC2626" }}>A section failed to render</div>
-        <div style={{ marginTop: 8, fontSize: t.h6 }}>{String(err?.message || err)}</div>
-      </div>
+      <section className="hero rv" id="home">
+        <div className="hero-bg" style={s.heroImage ? { backgroundImage: `url(${s.heroImage})` } : undefined} />
+        <div className="hero-scrim" />
+        <div className="shell">
+          {s.badge ? <div className="badge">{s.badge}</div> : null}
+          <h1 className="h1">{s.title || "Headline"}</h1>
+          {s.subtitle ? <p className="lead">{s.subtitle}</p> : null}
+          <div className="cta-row">
+            {s.primaryCta && (
+              <a href={s.primaryCta.href || "#"} className="btn">
+                {s.primaryCta.label || "Learn more"}
+              </a>
+            )}
+            {s.secondaryCta && (
+              <a href={s.secondaryCta.href || "#"} className="btn ghost">
+                {s.secondaryCta.label}
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
     );
   }
-}
 
-function renderHero(s, theme, t) {
-  const hasImage = !!s?.heroImage;
-  return (
-    <div
-      style={{
-        position: "relative",
-        overflow: "hidden",
-        borderRadius: theme.radius,
-        minHeight: 360,
-        color: hasImage ? "#fff" : theme.primary,
-        background: hasImage ? "#000" : `linear-gradient(120deg, ${theme.primary}, ${theme.accent})`,
-        ...anim(theme)
-      }}
-    >
-      {hasImage && (
-        <>
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundImage: `url(${s.heroImage})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              opacity: .9
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.25))"
-            }}
-          />
-        </>
-      )}
-      <div style={{ position: "relative", padding: 24 }}>
-        {s?.badge && (
-          <span style={{ display: "inline-block", padding: "6px 10px", borderRadius: 999, background: hasImage ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.25)", color: "#fff", fontSize: t.h6 }}>
-            {s.badge}
-          </span>
-        )}
-        <h1 style={{ marginTop: 8, fontSize: t.h1, lineHeight: 1.05, fontWeight: 800 }}>
-          {s?.title || "Make your best first impression"}
-        </h1>
-        <p style={{ marginTop: 8, fontSize: t.h5, opacity: hasImage ? .95 : .9 }}>
-          {s?.subtitle || "Modern, fast, accessible websites that convert."}
-        </p>
-        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-          {s?.primaryCta?.label && (
-            <a
-              href={s.primaryCta.href || "#contact"}
-              data-action="open-contact"
-              style={{ background: theme.accent, color: "#fff", padding: "10px 14px", borderRadius: 999, textDecoration: "none" }}
-            >
-              {s.primaryCta.label}
-            </a>
-          )}
-          {s?.secondaryCta?.label && (
-            <a
-              href={s.secondaryCta.href || "#contact"}
-              style={{ background: "#fff", color: theme.primary, padding: "10px 14px", borderRadius: 999, textDecoration: "none" }}
-            >
-              {s.secondaryCta.label}
-            </a>
-          )}
+  if (s.type === "features") {
+    return (
+      <section className="sec rv" id="products">
+        <div className="shell">
+          <h2 className="h2">{s.title || "What you’ll get"}</h2>
+          <div className="grid">
+            {(s.items || []).map((it, i) => (
+              <div className="card" key={i}>
+                <div className="h5">{it.title}</div>
+                {it.text ? <p className="p muted">{it.text}</p> : null}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      </section>
+    );
+  }
 
-function renderFeatures(s, theme, t) {
-  const items = Array.isArray(s?.items) ? s.items : [];
-  return (
-    <div style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}> {s?.title || "What you’ll get"} </div>
-      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        {items.map((it, idx) => (
-          <div key={idx} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" }}>
-            <div style={{ fontSize: t.h5, fontWeight: 700 }}>{it?.title || "Untitled"}</div>
-            <div style={{ marginTop: 6, fontSize: t.h6, color: "#475569" }}>{it?.text || ""}</div>
+  if (s.type === "gallery" && (s.images || []).length) {
+    return (
+      <section className="sec rv">
+        <div className="shell">
+          <h2 className="h2">{s.title || "Show, don’t tell"}</h2>
+          <div className="gallery">
+            {s.images.map((src, i) => (
+              <figure key={i} className="ph">
+                <img src={src} alt={`Gallery ${i + 1}`} loading="lazy" />
+              </figure>
+            ))}
           </div>
-        ))}
-        {items.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add feature items in the Maker.</div>}
-      </div>
-    </div>
-  );
-}
+        </div>
+      </section>
+    );
+  }
 
-function renderGallery(s, theme, t) {
-  const imgs = Array.isArray(s?.images) ? s.images : [];
-  return (
-    <div style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Gallery"}</div>
-      <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        {imgs.map((src, i) => (
-          <div key={i} style={{ borderRadius: theme.radius, overflow: "hidden", border: "1px solid #e5e7eb" }}>
-            <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: 140, objectFit: "cover" }} />
+  if (s.type === "testimonials") {
+    return (
+      <section className="sec rv">
+        <div className="shell">
+          <h2 className="h2">{s.title || "What clients say"}</h2>
+          <div className="grid">
+            {(s.quotes || []).map((q, i) => (
+              <blockquote className="card quote" key={i}>
+                <p>“{q.quote}”</p>
+                <cite className="muted">{q.author || ""}</cite>
+              </blockquote>
+            ))}
           </div>
-        ))}
-        {imgs.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add image URLs in the Maker.</div>}
-      </div>
-    </div>
-  );
-}
+        </div>
+      </section>
+    );
+  }
 
-function renderTestimonials(s, theme, t) {
-  const quotes = Array.isArray(s?.quotes) ? s.quotes : [];
-  return (
-    <div style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Testimonials"}</div>
-      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-        {quotes.map((q, i) => (
-          <div key={i} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius }}>
-            <div style={{ fontStyle: "italic", fontSize: t.h6 }}>“{q?.quote || ""}”</div>
-            <div style={{ marginTop: 8, fontSize: t.h6, color: "#64748B" }}>{q?.author || ""}</div>
+  if (s.type === "faq") {
+    return (
+      <section className="sec rv" id="about">
+        <div className="shell">
+          <h2 className="h2">{s.title || "FAQ"}</h2>
+          <div className="faq">
+            {(s.items || []).map((f, i) => (
+              <details key={i} className="faq-item">
+                <summary>{f.q}</summary>
+                <div className="p muted">{f.a}</div>
+              </details>
+            ))}
           </div>
-        ))}
-        {quotes.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add testimonials in the Maker.</div>}
-      </div>
-    </div>
-  );
-}
+        </div>
+      </section>
+    );
+  }
 
-function renderPricing(s, theme, t) {
-  const tiers = Array.isArray(s?.tiers) ? s.tiers : [];
-  return (
-    <div style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Pricing"}</div>
-      <div style={{ marginTop: 12, display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-        {tiers.map((p, i) => (
-          <div key={i} style={{ padding: 14, border: "1px solid #e5e7eb", borderRadius: theme.radius, background: "#fff" }}>
-            <div style={{ fontSize: t.h5, fontWeight: 700 }}>{p?.name || "Plan"}</div>
-            <div style={{ marginTop: 4, fontSize: t.h3, fontWeight: 800, color: theme.accent }}>{p?.price || "$—"}</div>
-            <ul style={{ marginTop: 8, paddingLeft: 16, fontSize: t.h6, color: "#475569" }}>
-              {(p?.items || []).map((feat, idx) => (
-                <li key={idx} style={{ marginTop: 4 }}>{feat}</li>
-              ))}
-            </ul>
-            <button
-              data-action="select-plan"
-              data-plan={p?.name || "Plan"}
-              style={{ marginTop: 10, background: theme.accent, color: "#fff", padding: "8px 12px", borderRadius: 12, border: "none", cursor: "pointer" }}
-            >
-              Choose {p?.name || "Plan"}
-            </button>
+  if (s.type === "contact") {
+    return (
+      <section className="sec rv" id="contact">
+        <div className="shell">
+          <h2 className="h2">{s.title || "Contact"}</h2>
+          <div className="contact">
+            <div className="card">
+              <div className="p"><b>Email:</b> {s.email || "contact@example.com"}</div>
+              {s.phone ? <div className="p"><b>Phone:</b> {s.phone}</div> : null}
+              {(s.locations || []).length ? (
+                <div className="p muted">Locations: {s.locations.join(" · ")}</div>
+              ) : null}
+              <a href={`mailto:${s.email || "contact@example.com"}`} className="btn" data-action="open-contact">
+                Send email
+              </a>
+            </div>
+            <form className="card">
+              <input className="in" placeholder="Name" />
+              <input className="in" placeholder="Email" />
+              <textarea className="in" rows={5} placeholder="Message" />
+              <button className="btn" type="button" data-action="open-contact">
+                Send
+              </button>
+            </form>
           </div>
-        ))}
-        {tiers.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Enable pricing or add plans in the Maker.</div>}
-      </div>
-    </div>
+        </div>
+      </section>
+    );
+  }
+
+  return null;
+}
+
+/* ————— Style ————— */
+
+function Style({ theme = {} }) {
+  const primary = theme.primary || "#0F172A";
+  const accent = theme.accent || "#0EA5E9";
+  const neutral = theme.neutral || "#F6F7F9";
+  const radius = theme.radius ?? 16;
+  const base = theme.base ?? 16;
+  const container = theme.container ?? 1200;
+
+  return (
+    <style>{`
+      :root{
+        --ink:${primary};
+        --accent:${accent};
+        --bg:${neutral};
+        --hair:#e8eaef;
+        --muted:#64748b;
+        --r:${radius}px;
+        --base:${base}px;
+        --w:${container}px;
+      }
+      .shell{max-width:var(--w); margin:0 auto; padding:0 16px;}
+      .p{font-size:var(--base); line-height:1.55}
+      .muted{color:var(--muted)}
+      .h1{font-size:calc(var(--base) * 2.5); letter-spacing:-0.02em; line-height:1.05; font-weight:700}
+      .h2{font-size:calc(var(--base) * 1.75); letter-spacing:-0.015em; line-height:1.15; font-weight:700}
+      .h5{font-size:calc(var(--base) * 1.125); font-weight:600}
+      .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 16px;
+           background:var(--accent); color:#fff; border-radius:999px; text-decoration:none; border:1px solid transparent}
+      .btn.ghost{background:#fff; color:var(--ink); border:1px solid var(--hair)}
+      .card{background:#fff; border:1px solid var(--hair); border-radius:var(--r); padding:16px}
+      .ph{background:#fff; border:1px solid var(--hair); border-radius:var(--r); overflow:hidden}
+      .ph img{display:block; width:100%; height:100%; object-fit:cover}
+      .rv{opacity:0; transform:translateY(10px); transition:opacity .4s ease, transform .4s ease}
+      .rv.vis{opacity:1; transform:translateY(0)}
+      .hd{position:sticky; top:0; z-index:10; background:rgba(255,255,255,.82); backdrop-filter:saturate(1.2) blur(6px);
+          border-bottom:1px solid var(--hair)}
+      .hd .shell{display:flex; align-items:center; justify-content:space-between; height:58px}
+      .logo img{height:22px}
+      .logo span{font-weight:700; letter-spacing:.02em}
+      .nav{display:flex; align-items:center; gap:18px}
+      .nav a{color:var(--ink); text-decoration:none}
+      .hero{position:relative; overflow:hidden; border-bottom:1px solid var(--hair)}
+      .hero-bg{position:absolute; inset:0; background:linear-gradient(135deg,#fdfdfd,#f2f5f8)}
+      .hero .shell{position:relative; padding:72px 16px}
+      .hero .lead{color:#1f2937; max-width:720px; margin-top:6px}
+      .badge{display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.6); border:1px solid var(--hair); margin-bottom:8px}
+      .hero-scrim{position:absolute; inset:0; pointer-events:none}
+      .cta-row{display:flex; gap:12px; margin-top:16px}
+      .sec{padding:56px 0}
+      .grid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(260px,1fr))}
+      .gallery{display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(220px,1fr))}
+      .quote p{font-style:italic; margin:0 0 6px 0}
+      .faq{display:grid; gap:8px}
+      .faq-item{border:1px solid var(--hair); border-radius:var(--r); padding:10px 14px; background:#fff}
+      .faq-item > summary{cursor:pointer; font-weight:600}
+      .contact{display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); align-items:start}
+      .in{width:100%; padding:10px 12px; border:1px solid var(--hair); border-radius:10px}
+      .ft{border-top:1px solid var(--hair); background:#fff; padding:24px 0 28px}
+      .ft-grid{display:grid; gap:12px; grid-template-columns:1fr 1fr; align-items:center}
+      .brand{font-weight:700}
+      @media (max-width: 720px){
+        .h1{font-size:calc(var(--base) * 2.1)}
+        .h2{font-size:calc(var(--base) * 1.5)}
+        .hero .shell{padding:56px 16px}
+      }
+    `}</style>
   );
 }
 
-function renderFaq(s, theme, t) {
-  const items = Array.isArray(s?.items) ? s.items : [];
-  return (
-    <div style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "FAQ"}</div>
-      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        {items.map((it, i) => (
-          <details key={i} style={{ border: "1px solid #e5e7eb", borderRadius: theme.radius, padding: 12, background: "#fff" }}>
-            <summary style={{ fontSize: t.h6, fontWeight: 700, cursor: "pointer" }}>{it?.q || "Question"}</summary>
-            <div style={{ marginTop: 8, fontSize: t.h6, color: "#475569" }}>{it?.a || ""}</div>
-          </details>
-        ))}
-        {items.length === 0 && <div style={{ fontSize: t.h6, color: "#64748B" }}>Add FAQs in the Maker.</div>}
-      </div>
-    </div>
-  );
-}
-
-function renderContact(s, theme, t) {
-  const email = s?.email || "";
-  const phone = s?.phone || "";
-  const locs = Array.isArray(s?.locations) ? s.locations : [];
-  return (
-    <div id="contact" style={{ ...cardStyle(theme), padding: 16 }}>
-      <div style={{ fontSize: t.h2, fontWeight: 800 }}>{s?.title || "Contact"}</div>
-      <div style={{ marginTop: 8, fontSize: t.h6 }}>
-        {email && <>Email: <a href={`mailto:${email}`} style={{ color: theme.accent, textDecoration: "none" }}>{email}</a></>}
-        {phone && <div style={{ marginTop: 4 }}>Phone: {phone}</div>}
-        {locs.length > 0 && <div style={{ marginTop: 4, color: "#64748B" }}>Locations: {locs.join(" · ")}</div>}
-      </div>
-      <form style={{ marginTop: 12, display: "grid", gap: 10 }}>
-        <input placeholder="Name" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
-        <input placeholder="Email" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
-        <textarea rows={4} placeholder="Message" style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 12 }} />
-        <button
-          type="button"
-          data-action="open-contact"
-          style={{ background: theme.accent, color: "#fff", padding: "10px 14px", borderRadius: 12, border: "none", cursor: "pointer", width: "fit-content" }}
-        >
-          Send
-        </button>
-      </form>
-    </div>
-  );
+/* ————— small style helper ————— */
+function card() {
+  return {
+    background: "#fff",
+    border: "1px solid #e8eaef",
+    borderRadius: 16,
+    padding: 16,
+  };
 }
