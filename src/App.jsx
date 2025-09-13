@@ -56,25 +56,33 @@ export default function App() {
   return (
     <div style={{ background: "#f6f7f9", minHeight: "100vh" }}>
       {/* MAKER (full width, contained) */}
-      <section
-        style={{
-          maxWidth: 1240,
-          margin: "0 auto",
-          padding: 16,
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-          background: "linear-gradient(to bottom,#f6f7f9 85%, rgba(246,247,249,0))",
-          backdropFilter: "saturate(1.1)",
-        }}
-      >
-        <MakerPanel
-          maker={maker}
-          setMaker={setMaker}
-          resetMaker={resetMaker}
-          autoconfigure={autoconfigure}
-        />
-      </section>
+      // BEFORE (yours had position: "sticky", top: 0, zIndex: 20, etc.)
+<section
+  style={{
+    maxWidth: 1240,
+    margin: "0 auto",
+    padding: 16,
+    position: "sticky",
+    top: 0,
+    zIndex: 20,
+    background: "linear-gradient(to bottom,#f6f7f9 85%, rgba(246,247,249,0))",
+    backdropFilter: "saturate(1.1)",
+  }}
+>
+  <MakerPanel ... />
+</section>
+
+// AFTER (static, lets you scroll down to the preview)
+<section
+  style={{
+    maxWidth: 1240,
+    margin: "0 auto",
+    padding: 16,
+    background: "#f6f7f9",
+  }}
+>
+  <MakerPanel ... />
+</section>
 
       {/* PREVIEW (directly under the maker) */}
       <section
