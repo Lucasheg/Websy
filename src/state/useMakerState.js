@@ -1,84 +1,71 @@
-// src/state/useMakerState.js
-import { useCallback, useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = "maker_neutral_v1";
-
-const NEUTRAL_BASELINE = {
+const DEFAULT = {
   brand: {
-    name: "Your brand",
-    tagline: "A short value proposition lives here.",
+    name: "Brand",
+    tagline: "A calm, professional default site.",
     logoUrl: "",
     locations: [],
   },
   theme: {
     primary: "#0F172A",
-    accent:  "#0EA5E9",
+    accent: "#0EA5E9",
     neutral: "#F6F7F9",
     radius: 16,
     base: 16,
-    scale: 1.25,
-    card: "soft",        // soft | outline | minimal
-    animation: "medium", // low | medium | high
     container: 1200,
   },
   layout: {
     nav: ["Home", "Products", "About", "Contact"],
   },
   content: {
-    // Leave empty to let the generator provide neutral defaults
-    // (hero/features/gallery/testimonials/faq/contact)
+    hero: {
+      title: "Clarity that converts.",
+      subtitle: "Solid structure, small type, fine lines, and breathing room.",
+      image: "",
+    },
+    features: [
+      { title: "Clear value", text: "Straightforward messaging that reduces friction." },
+      { title: "Fast & responsive", text: "Performance and responsiveness by default." },
+      { title: "Accessible", text: "Readable contrast, keyboard-friendly controls." },
+    ],
+    gallery: { images: [] },
+    testimonials: [{ quote: "Professional and reliable delivery.", author: "COO, Meridian" }],
+    faq: [{ q: "Do you adapt to different industries?", a: "Yes—structure and tone adapt to fit." }],
+    contact: { email: "contact@example.com", phone: "", locations: [] },
   },
 };
 
 export default function useMakerState() {
   const [maker, setMaker] = useState(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return NEUTRAL_BASELINE;
+      const saved = localStorage.getItem("maker");
+      return saved ? JSON.parse(saved) : DEFAULT;
+    } catch {
+      return DEFAULT;
+    }
   });
 
-  // persist
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(maker)); } catch {}
+    try {
+      localStorage.setItem("maker", JSON.stringify(maker));
+    } catch {}
   }, [maker]);
 
-  const resetMaker = useCallback(() => {
-    setMaker(NEUTRAL_BASELINE);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(NEUTRAL_BASELINE)); } catch {}
-  }, []);
+  const resetMaker = useCallback(() => setMaker(DEFAULT), []);
 
-  // very light “AI-ish” autoconfigure that sets brand & nav only
-  const autoconfigure = useCallback((idea) => {
-    if (!idea || typeof idea !== "string") return;
-    const s = idea.toLowerCase();
+  const autoconfigure = useCallback((text) => {
+    // super light “guide me”: brand name + optional hints
+    const t = (text || "").trim();
+    let name = (t.match(/^(.*?)(,|$)/)?.[1] || "").trim();
+    if (!name) name = "Brand";
 
-    // pick an “industry mood” just for initial nav style
-    let nav = ["Home", "Products", "About", "Contact"];
-    if (/(law|legal|attorney|advokat)/.test(s)) {
-      nav = ["Home", "Services", "Team", "Contact"];
-    } else if (/(clinic|dentist|health|medical)/.test(s)) {
-      nav = ["Home", "Services", "Locations", "Contact"];
-    } else if (/(saas|software|platform|app)/.test(s)) {
-      nav = ["Home", "Product", "Pricing", "Contact"];
-    }
-
-    // try to extract a simple name: “called X” / “named X”
-    const nameMatch = idea.match(/(?:called|named)\s+([A-Za-z0-9&\-\s]{2,})/i);
-    const name = nameMatch ? nameMatch[1].trim() : "Your brand";
-
-    setMaker((prev) => ({
-      ...prev,
-      brand: {
-        ...prev.brand,
-        name,
-      },
-      layout: {
-        ...prev.layout,
-        nav,
-      },
-    }));
+    setMaker((prev) => {
+      const next = { ...prev };
+      next.brand = { ...(prev.brand || {}), name };
+      // Keep everything else as-is; we stay neutral
+      return next;
+    });
   }, []);
 
   return { maker, setMaker, resetMaker, autoconfigure };
