@@ -1,9 +1,8 @@
 // src/dsl/generate.js
 /**
- * Generate a generic, professional demo DSL from the Maker state.
- * - Neutral defaults (not agency-specific)
- * - Uses maker overrides when present (brand, theme, content arrays)
- * - Safe fallbacks so PreviewShell never crashes
+ * Neutral, professional demo generator (no agency specifics).
+ * Sections: Header → Hero → Features → Gallery → Testimonials → FAQ → Contact
+ * Pricing is OMITTED by default (only renders if maker.content.pricing exists).
  */
 
 function pick(v, fallback) {
@@ -16,7 +15,6 @@ export default function generateDSL(maker = {}) {
   const content = maker.content || {};
   const layout = maker.layout || {};
 
-  // Neutral, professional theme
   const theme = {
     primary: pick(themeIn.primary, "#0F172A"),   // ink
     accent:  pick(themeIn.accent,  "#0EA5E9"),   // action
@@ -33,15 +31,13 @@ export default function generateDSL(maker = {}) {
   const tagline   = pick(brand.tagline, "A short value proposition lives here.");
   const logoUrl   = pick(brand.logoUrl, "");
 
-  // Navigation: neutral defaults
   const nav = Array.isArray(layout.nav) && layout.nav.length
     ? layout.nav
     : ["Home", "Products", "About", "Contact"];
 
-  // Sections (use maker.content if supplied, else defaults)
   const sections = [];
 
-  // HERO
+  // HERO (neutral copy and CTAs)
   const hero = content.hero || {};
   sections.push({
     type: "hero",
@@ -49,16 +45,13 @@ export default function generateDSL(maker = {}) {
     subtitle: pick(hero.subtitle, tagline),
     badge: pick(hero.badge, (brand.locations || [])?.join(" · ")),
     heroImage: pick(hero.image, null),
-    primaryCta: {
-      label: pick(hero.primaryCta?.label, "Get started"),
-      href: pick(hero.primaryCta?.href, "#contact"),
-    },
+    primaryCta: { label: pick(hero.primaryCta?.label, "Learn more"), href: pick(hero.primaryCta?.href, "#about") },
     secondaryCta: hero.secondaryCta?.label
       ? { label: hero.secondaryCta.label, href: pick(hero.secondaryCta.href, "#contact") }
-      : null,
+      : { label: "Contact us", href: "#contact" },
   });
 
-  // FEATURES
+  // FEATURES (generic product/service benefits)
   const features = Array.isArray(content.features) ? content.features : null;
   sections.push({
     type: "features",
@@ -66,14 +59,14 @@ export default function generateDSL(maker = {}) {
     items: features?.length
       ? features.slice(0, 8)
       : [
-          { title: "Fast to load", text: "Performance-focused pages that respect your users’ time." },
-          { title: "Clear to scan", text: "Hierarchy and copy that help people decide fast." },
-          { title: "Accessible",    text: "Contrast, keyboard support, labels — baked in." },
-          { title: "Search-friendly", text: "Clean structure and metadata for discoverability." },
+          { title: "Fast to load",      text: "Performance-focused pages that respect your users’ time." },
+          { title: "Clear to scan",     text: "Hierarchy and copy that help people decide quickly." },
+          { title: "Accessible",        text: "Contrast, keyboard support, and labels — baked in." },
+          { title: "Search-friendly",   text: "Clean structure and metadata for discoverability." },
         ],
   });
 
-  // GALLERY
+  // GALLERY (optional: empty by default)
   const gallery = Array.isArray(content.gallery?.images) ? content.gallery.images : [];
   sections.push({
     type: "gallery",
@@ -94,20 +87,6 @@ export default function generateDSL(maker = {}) {
         ],
   });
 
-  // PRICING (neutral product/service style)
-  const tiers = Array.isArray(content.pricing?.tiers) ? content.pricing.tiers : null;
-  sections.push({
-    type: "pricing",
-    title: pick(content.pricingTitle, "Pricing"),
-    tiers: tiers?.length
-      ? tiers
-      : [
-          { name: "Basic",  price: "$199",  items: ["Up to 3 pages", "Responsive", "Email support"] },
-          { name: "Pro",    price: "$499",  items: ["Up to 8 pages", "SEO basics", "Priority support"] },
-          { name: "Elite",  price: "$1,200", items: ["Unlimited pages", "Advanced SEO", "Dedicated support"] },
-        ],
-  });
-
   // FAQ
   const faqItems = Array.isArray(content.faq?.items) ? content.faq.items : null;
   sections.push({
@@ -116,8 +95,8 @@ export default function generateDSL(maker = {}) {
     items: faqItems?.length
       ? faqItems
       : [
-          { q: "How long does it take?", a: "Most small sites are ready in days, not weeks." },
-          { q: "Can I update it myself?", a: "Yes. We structure content so updates are simple." },
+          { q: "How long does it take?",   a: "Most small sites are ready in days, not weeks." },
+          { q: "Can I update it myself?",  a: "Yes. We structure content so updates are simple." },
         ],
   });
 
@@ -131,6 +110,9 @@ export default function generateDSL(maker = {}) {
     locations: Array.isArray(brand.locations) ? brand.locations : [],
   });
 
+  // NOTE: Pricing is intentionally NOT included by default.
+  // If you ever want it, set maker.content.pricing = { tiers:[...] }.
+
   return {
     meta: {
       brand: { name: brandName, tagline, logoUrl },
@@ -138,10 +120,7 @@ export default function generateDSL(maker = {}) {
       nav,
     },
     pages: [
-      {
-        slug: "home",
-        sections,
-      },
+      { slug: "home", sections },
     ],
   };
 }
