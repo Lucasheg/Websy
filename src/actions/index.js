@@ -6,7 +6,7 @@ export async function performAction(action, helpers, payload) {
     case "book-call":
       helpers.openModal({
         title: "Book a call",
-        body: "A simple placeholder. Later you can embed Calendly/Cal.com here.",
+        body: "Placeholder. Later: embed your scheduler here.",
       });
       break;
     default:
