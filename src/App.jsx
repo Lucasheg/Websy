@@ -69,7 +69,7 @@ export default function App() {
     backdropFilter: "saturate(1.1)",
   }}
 >
-  <MakerPanel ... />
+    <MakerPanel dsl={dsl} setDsl={setDsl} />
 </section>
 
 // AFTER (static, lets you scroll down to the preview)
