@@ -62,14 +62,10 @@ export default function App() {
     maxWidth: 1240,
     margin: "0 auto",
     padding: 16,
-    position: "sticky",
-    top: 0,
-    zIndex: 20,
-    background: "linear-gradient(to bottom,#f6f7f9 85%, rgba(246,247,249,0))",
-    backdropFilter: "saturate(1.1)",
+    background: "#f6f7f9",
   }}
 >
-    <MakerPanel dsl={dsl} setDsl={setDsl} />
+  <MakerPanel dsl={dsl} setDsl={setDsl} />
 </section>
 
 // AFTER (static, lets you scroll down to the preview)
