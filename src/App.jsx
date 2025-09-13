@@ -55,38 +55,27 @@ export default function App() {
 
   return (
     <div style={{ background: "#f6f7f9", minHeight: "100vh" }}>
-      {/* MAKER (full width, contained) */}
-      // BEFORE (yours had position: "sticky", top: 0, zIndex: 20, etc.)
-<section
-  style={{
-    maxWidth: 1240,
-    margin: "0 auto",
-    padding: 16,
-    background: "#f6f7f9",
-  }}
->
-  <MakerPanel
-  maker={maker}
-  setMaker={setMaker}
-  resetMaker={resetMaker}
-  autoconfigure={autoconfigure}
-/>
-</section>
-
-// AFTER (static, lets you scroll down to the preview)
-<section
-  style={{
-    maxWidth: 1240,
-    margin: "0 auto",
-    padding: 16,
-    background: "#f6f7f9",
-  }}
->
-  <MakerPanel ... />
-</section>
+      {/* MAKER (full width, contained, NOT sticky) */}
+      <section
+        style={{
+          maxWidth: 1240,
+          margin: "0 auto",
+          padding: 16,
+          background: "#f6f7f9",
+          borderBottom: "1px solid #e5e7eb",
+        }}
+      >
+        <MakerPanel
+          maker={maker}
+          setMaker={setMaker}
+          resetMaker={resetMaker}
+          autoconfigure={autocomplete /* typo guard: if you named it autoconfigure, keep that */}
+        />
+      </section>
 
       {/* PREVIEW (directly under the maker) */}
       <section
+        id="preview"
         style={{
           maxWidth: 1240,
           margin: "0 auto",
