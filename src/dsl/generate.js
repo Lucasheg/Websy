@@ -25,21 +25,10 @@ export default function generateDSL(maker = {}) {
     },
   ];
 
-  if (features.length) {
-    sections.push({ type: "features", title: "What you’ll get", items: features });
-  }
-
-  if (gallery.length) {
-    sections.push({ type: "gallery", title: "Show, don’t tell", images: gallery });
-  }
-
-  if (testimonials.length) {
-    sections.push({ type: "testimonials", title: "What clients say", quotes: testimonials });
-  }
-
-  if (faq.length) {
-    sections.push({ type: "faq", title: "FAQ", items: faq });
-  }
+  if (features.length) sections.push({ type: "features", title: "What you’ll get", items: features });
+  if (gallery.length)  sections.push({ type: "gallery", title: "Show, don’t tell", images: gallery });
+  if (testimonials.length) sections.push({ type: "testimonials", title: "What clients say", quotes: testimonials });
+  if (faq.length) sections.push({ type: "faq", title: "FAQ", items: faq });
 
   sections.push({
     type: "contact",
