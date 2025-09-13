@@ -9,10 +9,12 @@ import generateDSL from "./dsl/generate.js";
 export default function App() {
   const { maker, setMaker, resetMaker, autoconfigure } = useMakerState();
 
+  // Modal for actions
   const [modal, setModal] = useState(null);
   const openModal = useCallback((cfg) => setModal(cfg), []);
   const closeModal = useCallback(() => setModal(null), []);
 
+  // Helpers for actions
   const helpers = {
     openModal,
     closeModal,
@@ -20,54 +22,42 @@ export default function App() {
       const el = document.getElementById(id);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     },
-    navigate: (hash) => {
-      window.location.hash = hash;
-    },
+    navigate: (hash) => { window.location.hash = hash; },
     toast: (msg) => alert(msg),
   };
 
-  const onPreviewClick = useCallback(
-    async (e) => {
-      const target = e.target.closest("[data-action]");
-      if (!target) return;
-      e.preventDefault();
-      const action = target.getAttribute("data-action");
-      const payload = {};
-      for (const { name, value } of Array.from(target.attributes)) {
-        if (name.startsWith("data-") && name !== "data-action") {
-          const key = name
-            .replace(/^data-/, "")
-            .replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-          payload[key] = value;
-        }
+  // One click delegate for the preview
+  const onPreviewClick = useCallback(async (e) => {
+    const target = e.target.closest("[data-action]");
+    if (!target) return;
+    e.preventDefault();
+    const action = target.getAttribute("data-action");
+    const payload = {};
+    for (const { name, value } of Array.from(target.attributes)) {
+      if (name.startsWith("data-") && name !== "data-action") {
+        const key = name.replace(/^data-/, "").replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        payload[key] = value;
       }
-      await performAction(action, helpers, payload);
-    },
-    [helpers]
-  );
+    }
+    await performAction(action, helpers, payload);
+  }, [helpers]);
 
-  const dsl = useMemo(() => generateDSL(maker), [maker]);
+  // Build DSL safely
+  const dsl = useMemo(() => generateDSL(maker || {}), [maker]);
 
   return (
     <div style={{ background: "#f6f7f9", minHeight: "100vh" }}>
-      {/* Maker — full width card at top */}
-      <section
-        style={{
-          maxWidth: 1240,
-          margin: "0 auto",
-          padding: 16,
-          background: "#f6f7f9",
-        }}
-      >
+      {/* MAKER (top) */}
+      <section style={{ maxWidth: 1240, margin: "0 auto", padding: 16 }}>
         <MakerPanel
           maker={maker}
           setMaker={setMaker}
           resetMaker={resetMaker}
-          autoconfigure={autoconfigure}
+          autoconfigure={autocompleteSafe(autocompleteText => autoconfigure(autocompleteText))}
         />
       </section>
 
-      {/* Preview */}
+      {/* PREVIEW (under the maker) */}
       <section
         style={{ maxWidth: 1240, margin: "0 auto", padding: "0 16px 32px" }}
         onClick={onPreviewClick}
@@ -78,4 +68,10 @@ export default function App() {
       <Modal modal={modal} onClose={closeModal} />
     </div>
   );
+}
+
+function autocompleteSafe(fn){
+  return (t)=> {
+    try { fn(t || ""); } catch(e){ console.error(e); }
+  };
 }
