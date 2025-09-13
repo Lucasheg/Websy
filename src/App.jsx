@@ -69,7 +69,7 @@ export default function App() {
           maker={maker}
           setMaker={setMaker}
           resetMaker={resetMaker}
-          autoconfigure={autocomplete /* typo guard: if you named it autoconfigure, keep that */}
+          autoconfigure={autoconfigure}
         />
       </section>
 
