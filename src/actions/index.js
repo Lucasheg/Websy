@@ -1,18 +1,15 @@
-import bookCall from "./bookCall.jsx";
-import openContact from "./openContact.jsx";
-import selectPlan from "./selectPlan.jsx";
-
-const registry = {
-  "book-call": bookCall,
-  "open-contact": openContact,
-  "select-plan": selectPlan,
-};
-
-export async function performAction(name, helpers, payload) {
-  const fn = registry[name];
-  if (!fn) {
-    helpers.toast?.(`Unknown action: ${name}`);
-    return;
+export async function performAction(action, helpers, payload) {
+  switch (action) {
+    case "open-contact":
+      helpers.scrollTo("contact");
+      break;
+    case "book-call":
+      helpers.openModal({
+        title: "Book a call",
+        body: "A simple placeholder. Later you can embed Calendly/Cal.com here.",
+      });
+      break;
+    default:
+      console.warn("Unknown action:", action, payload);
   }
-  await fn(helpers, payload);
 }
